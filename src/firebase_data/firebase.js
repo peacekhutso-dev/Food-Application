@@ -1,29 +1,3 @@
-/*
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyAyFqIHhDjY5vuvo1S6w-Q8MZaZA_fgOuk",
-  authDomain: "foodgo-d19a1.firebaseapp.com",
-  projectId: "foodgo-d19a1",
-  storageBucket: "foodgo-d19a1.firebasestorage.app",
-  messagingSenderId: "542824126359",
-  appId: "1:542824126359:web:7d96f95a944cffefb396d2"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-*/
-
-// src/firebase/firebase.js
 
 // Import Firebase modules
 import { initializeApp } from "firebase/app";
@@ -33,13 +7,13 @@ import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAyFqIHhDjY5vuvo1S6w-Q8MZaZA_fgOuk",
-  authDomain: "foodgo-d19a1.firebaseapp.com",
-  databaseURL: "https://foodgo-d19a1-default-rtdb.firebaseio.com",
-  projectId: "foodgo-d19a1",
-  storageBucket: "foodgo-d19a1.firebasestorage.app",
-  messagingSenderId: "542824126359",
-  appId: "1:542824126359:web:7d96f95a944cffefb396d2"
+    apiKey: "AIzaSyD5B2b4qokO8xgsHDskCzkr_NPfpg98ais",
+    authDomain: "food-app-1a551.firebaseapp.com",
+    projectId: "food-app-1a551",
+    storageBucket: "food-app-1a551.firebasestorage.app",
+    messagingSenderId: "50589093889",
+    appId: "1:50589093889:web:2c7ad354390b9eae807000",
+    measurementId: "G-2BTTC5S508"
 };
 
 // Initialize Firebase

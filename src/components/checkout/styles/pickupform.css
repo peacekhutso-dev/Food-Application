@@ -1,0 +1,215 @@
+/* ═══════════════════════════════════════════════════════════════
+   pickupform.css  —  Kanteen brand
+   Font: Poppins  |  Red: #dc2626  |  Dark: #1f2937
+   ═══════════════════════════════════════════════════════════════ */
+
+* { font-family: 'Poppins', system-ui, sans-serif; }
+
+/* ── Section wrapper ─────────────────────────────────────────── */
+.pickup-form-section { margin-bottom: 2rem; }
+
+/* ── Header ──────────────────────────────────────────────────── */
+.pickup-form-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  color: #1f2937;
+}
+.pickup-form-header svg  { color: #dc2626; }
+.pickup-form-header h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* ── Grid ────────────────────────────────────────────────────── */
+.pickup-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+/* ── Form field ──────────────────────────────────────────────── */
+.form-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  animation: fadeIn 0.35s ease-out backwards;
+}
+.form-field.full-width { grid-column: 1 / -1; }
+
+.form-field:nth-child(1) { animation-delay: 0.08s; }
+.form-field:nth-child(2) { animation-delay: 0.16s; }
+.form-field:nth-child(3) { animation-delay: 0.24s; }
+.form-field:nth-child(4) { animation-delay: 0.32s; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* ── Label ───────────────────────────────────────────────────── */
+.form-field label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #4b5563;
+  transition: color 0.2s ease;
+}
+.form-field.focused label,
+.form-field.filled  label { color: #dc2626; }
+
+.form-field label svg { color: #9ca3af; transition: color 0.2s ease; }
+.form-field.focused label svg,
+.form-field.filled  label svg { color: #dc2626; }
+
+.optional-tag {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-weight: 500;
+  padding: 0.1rem 0.45rem;
+  background: #f3f4f6;
+  border-radius: 5px;
+}
+
+/* ── Inputs ──────────────────────────────────────────────────── */
+.form-field input,
+.form-field textarea {
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+  color: #1f2937;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+  box-sizing: border-box;
+}
+.form-field input::placeholder,
+.form-field textarea::placeholder { color: #9ca3af; font-weight: 400; }
+
+.form-field input:hover,
+.form-field textarea:hover { border-color: #fca5a5; }
+
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field.focused input,
+.form-field.focused textarea {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.1);
+}
+
+.form-field.filled input,
+.form-field.filled textarea {
+  background: #fafafa;
+  border-color: #d1d5db;
+}
+
+.form-field textarea {
+  resize: vertical;
+  min-height: 78px;
+  line-height: 1.5;
+}
+
+/* ── Select ──────────────────────────────────────────────────── */
+.select-wrapper { position: relative; }
+
+.select-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0; height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #6b7280;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+.form-field.focused .select-wrapper::after {
+  border-top-color: #dc2626;
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.select-wrapper select {
+  width: 100%;
+  padding: 0.8rem 2.2rem 0.8rem 0.9rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+  color: #1f2937;
+  background: #ffffff;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.select-wrapper select:hover  { border-color: #fca5a5; }
+.select-wrapper select:focus  {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.1);
+}
+.select-wrapper select option:disabled { color: #9ca3af; font-style: italic; }
+
+/* ── Store hours — red tint ──────────────────────────────────── */
+.store-hours {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.65rem;
+  background: #fef2f2;
+  border-radius: 7px;
+  border: 1px solid #fecaca;
+}
+.store-hours svg   { color: #dc2626; flex-shrink: 0; }
+.store-hours span  { font-size: 0.775rem; color: #991b1b; font-weight: 500; }
+
+/* ── Error state ─────────────────────────────────────────────── */
+.form-field.error input,
+.form-field.error textarea,
+.form-field.error select {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+.form-field.error label { color: #dc2626; }
+
+.error-message {
+  font-size: 0.775rem;
+  color: #dc2626;
+  font-weight: 500;
+  margin-top: 0.2rem;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .pickup-form-grid { grid-template-columns: 1fr; }
+  .form-field { grid-column: 1 / -1 !important; }
+}
+@media (max-width: 640px) {
+  .pickup-form-header h2 { font-size: 1rem; }
+  .form-field input,
+  .form-field textarea,
+  .select-wrapper select { padding: 0.7rem 0.8rem; font-size: 0.875rem; }
+}
+
+/* ── Focus visible (a11y) ────────────────────────────────────── */
+.form-field input:focus-visible,
+.form-field textarea:focus-visible,
+.select-wrapper select:focus-visible {
+  outline: 2px solid #fca5a5;
+  outline-offset: 2px;
+}

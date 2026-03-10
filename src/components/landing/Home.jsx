@@ -1,169 +1,192 @@
-import { FiArrowRight } from "react-icons/fi";
-import { GiChickenLeg, GiDonut, GiFrenchFries, GiHamburger, GiNoodles, GiPizzaSlice, GiSodaCan, GiTacos } from "react-icons/gi";
-import { Pizza, Sandwich, Salad, Coffee, IceCream, UtensilsCrossed } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-//import BannerBackground from "../../assets/images/jbadASS.jpg";
-
-import Navbar from "./Navbar";
-import "./Home.css";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FiArrowRight } from 'react-icons/fi';
+import { Store, Clock, Package } from 'lucide-react';
+import Navbar from './Navbar';
 
 const Home = () => {
   const navigate = useNavigate();
 
-  const categories = [
-    { icon: <Pizza />, name: "Pizza", color: "#ff6b35" },
-    { icon: <Sandwich />, name: "Burgers", color: "#f7931e" },
-    { icon: <Salad />, name: "Healthy", color: "#22c55e" },
-    { icon: <Coffee />, name: "Drinks", color: "#fb923c" },
-    { icon: <IceCream />, name: "Desserts", color: "#ec4899" },
-    { icon: <UtensilsCrossed />, name: "More", color: "#16a34a" }
+  const universities = [
+    { id: 'uwc', name: 'UWC', location: 'Bellville', vendors: 15 },
+    { id: 'uct', name: 'UCT', location: 'Rondebosch', vendors: 12 },
+    { id: 'stellenbosch', name: 'Stellenbosch', location: 'Stellenbosch', vendors: 18 },
+    { id: 'cput', name: 'CPUT', location: 'Cape Town', vendors: 10 },
   ];
 
+  const [selectedCampus, setSelectedCampus] = useState(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('selectedCampus');
+    if (saved) {
+      setSelectedCampus(universities.find(u => u.id === saved));
+    }
+  }, []);
+
+  const handleCampusChange = (e) => {
+    const campus = universities.find(u => u.id === e.target.value);
+    setSelectedCampus(campus);
+    localStorage.setItem('selectedCampus', campus.id);
+  };
+
   return (
-    <div className="home-container">
+    <div style={{ minHeight: '100vh', background: '#ffffff' }}>
       <Navbar />
 
-      {/* Hero Banner */}
-      <div className="home-banner-container">
-        <GiPizzaSlice style={{
-          position: 'absolute',
-          fontSize: '80px',
-          top: '15%',
-          right: '8%',
-          color: 'rgba(255, 107, 0, 0.15)',
-          animation: 'float1 9s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0
-        }} />
-        <GiPizzaSlice style={{
-          position: 'absolute',
-          fontSize: '20px',
-          top: '12%',
-          right: '8%',
-          color: 'rgba(5, 2, 31, 0)',
-          animation: 'float2 7s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0
-        }} />
+      {/* HERO */}
+      <section
+        style={{
+          marginTop: 70,
+          padding: '80px 16px',
+          background: 'linear-gradient(135deg, #ffffff 0%, #fef2f2 100%)',
+          animation: 'slideUp 0.6s ease',
+        }}
+      >
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
-        <GiHamburger style={{
-          position: 'absolute',
-          fontSize: '65px',
-          top: '70%',
-          left: '12%',
-          color: 'rgba(255, 140, 0, 0.12)',
-          animation: 'float3 11s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0
-        }} />
-
-        <GiTacos style={{
-          position: 'absolute',
-          fontSize: '55px',
-          top: '45%',
-          right: '25%',
-          color: 'rgba(255, 165, 0, 0.1)',
-          animation: 'float4 13s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0
-        }} />
-
-        <GiFrenchFries style={{
-          position: 'absolute',
-          fontSize: '70px',
-          top: '25%',
-          left: '20%',
-          color: 'rgba(255, 180, 0, 0.13)',
-          animation: 'float1 10s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0
-        }} />
-
-        <GiDonut style={{
-          position: 'absolute',
-          fontSize: '60px',
-          top: '55%',
-          right: '15%',
-          color: 'rgba(255, 100, 150, 0.11)',
-          animation: 'float2 12s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0
-        }} />
-
-        <GiNoodles style={{
-          position: 'absolute',
-          fontSize: '58px',
-          top: '80%',
-          left: '30%',
-          color: 'rgba(255, 200, 100, 0.12)',
-          animation: 'float3 14s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0
-        }} />
-
-        <GiChickenLeg style={{
-          position: 'absolute',
-          fontSize: '75px',
-          top: '35%',
-          left: '5%',
-          color: 'rgba(255, 150, 80, 0.14)',
-          animation: 'float1 11s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0
-        }} />
-
-        <GiSodaCan style={{
-          position: 'absolute',
-          fontSize: '50px',
-          top: '65%',
-          right: '30%',
-          color: 'rgba(255, 0, 100, 0.1)',
-          animation: 'float3 15s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0
-        }} />
-
-        <div className="home-text-section">
-          <h1 className="primary-heading">
-            Order from foodGo to avoid the long lines
-          </h1>
-          <p className="primary-text">
-            Order online and have your food ready when you arrive!
-          </p>
-          <button className="secondary-button" onClick={() => navigate('/vendor')}>
-            Order Now <FiArrowRight />
-          </button>
-        </div>
-      </div>
-
-      {/* Categories Section */}
-      <div className="categories-section">
-        <div className="categories-header">
-          <h2 className="categories-title">Browse by Category</h2>
-          <p className="categories-subtext">What are you craving today?</p>
-        </div>
-
-        <div className="categories-grid">
-          {categories.map((category, index) => (
-            <div
-              key={index}
-              className="category-card"
-              onClick={() => navigate('/vendor')}
+          {/* Campus Selector */}
+          <div style={{ maxWidth: 360, marginBottom: 32 }}>
+            <label
+              style={{
+                display: 'block',
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#374151',
+                marginBottom: 8,
+              }}
             >
-              <div
-                className="category-icon"
-                style={{ backgroundColor: category.color }}
-              >
-                {category.icon}
-              </div>
-              <span className="category-name">{category.name}</span>
-            </div>
-          ))}
-        </div>
+              Select campus
+            </label>
 
-      </div>
+            <select
+              value={selectedCampus?.id || ''}
+              onChange={handleCampusChange}
+              style={{
+                width: '100%',
+                padding: '14px 16px',
+                borderRadius: 14,
+                border: '2px solid #dc2626',
+                backgroundColor: '#ffffff',
+                color: '#111827',
+                fontSize: 15,
+                fontWeight: 600,
+                outline: 'none',
+                cursor: 'pointer',
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                MozAppearance: 'none',
+                backgroundImage:
+                  'linear-gradient(45deg, transparent 50%, #dc2626 50%), linear-gradient(135deg, #dc2626 50%, transparent 50%)',
+                backgroundPosition: 'calc(100% - 20px) 55%, calc(100% - 14px) 55%',
+                backgroundSize: '6px 6px, 6px 6px',
+                backgroundRepeat: 'no-repeat',
+              }}
+            >
+              <option value="" disabled>
+                Choose your campus
+              </option>
+              {universities.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.name} — {u.location}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Headline */}
+          <h1
+            style={{
+              fontSize: 'clamp(32px, 6vw, 52px)',
+              fontWeight: 800,
+              lineHeight: 1.1,
+              color: '#111827',
+              marginBottom: 16,
+            }}
+          >
+            Campus food,<br />
+            <span style={{ color: '#dc2626' }}>without the queue</span>
+          </h1>
+
+          {/* Subtitle */}
+          <p
+            style={{
+              fontSize: 'clamp(15px, 4vw, 18px)',
+              color: '#374151',
+              maxWidth: 520,
+              marginBottom: 36,
+              lineHeight: 1.6,
+            }}
+          >
+            Order from your favourite campus vendors and pick up when it’s ready.
+          </p>
+
+          {/* Stats + CTA */}
+          {selectedCampus && (
+            <>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 24,
+                  flexWrap: 'wrap',
+                  marginBottom: 36,
+                  animation: 'fadeIn 0.4s ease',
+                }}
+              >
+                <Stat icon={<Store size={18} />} text={`${selectedCampus.vendors}+ Vendors`} />
+                <Stat icon={<Clock size={18} />} text="Ready in 10 min" />
+                <Stat icon={<Package size={18} />} text="Easy pickup" />
+              </div>
+
+              <button
+                onClick={() => navigate('/vendor')}
+                style={{
+                  width: '100%',
+                  maxWidth: 260,
+                  padding: '16px 28px',
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  borderRadius: 14,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  boxShadow: '0 10px 25px rgba(220,38,38,.35)',
+                }}
+              >
+                Browse Vendors <FiArrowRight />
+              </button>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* Animations */}
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(40px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 };
+
+const Stat = ({ icon, text }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    {icon}
+    <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+      {text}
+    </span>
+  </div>
+);
 
 export default Home;

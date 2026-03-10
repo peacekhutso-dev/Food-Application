@@ -1,86 +1,101 @@
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardMedia,
-  Container,
-  Grid,
-  IconButton,
-  Rating,
-  Typography
-} from '@mui/material';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
-  Home,
-  Search,
-  ShoppingCart,
-  User,
-  Store,
-  Flame,
-  Pizza,
-  Coffee,
-  IceCream2,
-  Fish,
-  Heart,
-  Salad,
-  HelpCircle
+  Store, Flame, Pizza, Coffee, IceCream2,
+  Fish, Heart, Salad, ChevronLeft, ChevronRight, Star, MapPin, Search, X
 } from 'lucide-react';
 import { GiNoodles, GiTacos } from 'react-icons/gi';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase_data/firebase';
 import { getAuth } from 'firebase/auth';
-import foodgoLogo from './foodgo.png';
 import Navbar from '../components/landing/Navbar';
+import KanteenLoader from '../components/KanteenLoader';
+import './VendorsPage.css';
 
 const VendorsPage = () => {
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [favorites, setFavorites] = useState([]);
-  const [vendors, setVendors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState({ name: 'User' });
-  const [cart, setCart] = useState([]);
+  const navigate  = useNavigate();
+  const scrollRef = useRef(null);
 
+  const [searchQuery,      setSearchQuery]      = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [favorites,        setFavorites]        = useState([]);
+  const [vendors,          setVendors]          = useState([]);
+  const [loading,          setLoading]          = useState(true);
+  const [user,             setUser]             = useState({ name: 'User' });
+  const [cart,             setCart]             = useState([]);
+  const [location,         setLocation]         = useState(null);   // resolved location string
+  const [locLoading,       setLocLoading]       = useState(false);
+  const [locInput,         setLocInput]         = useState('');     // what the user is typing
+  const [locSuggestions,   setLocSuggestions]   = useState([]);     // nominatim suggestions
+  const [locOpen,          setLocOpen]          = useState(false);  // dropdown visible
+  const locRef                                  = useRef(null);     // for click-outside
+
+  // ── Category definitions ──────────────────────────────────────
+  // Each has a bgColor for the filled circle and an icon
   const categoryIcons = [
-    { name: 'Hot Deals', icon: <Flame />, color: '#ff6b35', value: 'deals' },
-    { name: 'Pizza', icon: <Pizza />, color: '#f7931e', value: 'Pizza' },
-    { name: 'Burgers', icon: <Salad />, color: '#22c55e', value: 'Fast Food' },
-    { name: 'Asian', icon: <GiNoodles />, color: '#16a34a', value: 'Asian' },
-    { name: 'Coffee', icon: <Coffee />, color: '#fb923c', value: 'Coffee' },
-    { name: 'Mexican', icon: <GiTacos />, color: '#ec4899', value: 'Mexican' },
-    { name: 'Japanese', icon: <Fish />, color: '#8b5cf6', value: 'Japanese' },
-    { name: 'Desserts', icon: <IceCream2 />, color: '#f59e0b', value: 'Italian' }
+    { name: 'All',      icon: <Store     size={22} />, bg: '#1f2937', value: 'All'       },
+    { name: 'Deals',    icon: <Flame     size={22} />, bg: '#dc2626', value: 'deals'     },
+    { name: 'Pizza',    icon: <Pizza     size={22} />, bg: '#ea580c', value: 'Pizza'     },
+    { name: 'Burgers',  icon: <Salad     size={22} />, bg: '#16a34a', value: 'Fast Food' },
+    { name: 'Asian',    icon: <GiNoodles size={22} />, bg: '#0891b2', value: 'Asian'     },
+    { name: 'Coffee',   icon: <Coffee    size={22} />, bg: '#92400e', value: 'Coffee'    },
+    { name: 'Mexican',  icon: <GiTacos   size={22} />, bg: '#c2410c', value: 'Mexican'   },
+    { name: 'Japanese', icon: <Fish      size={22} />, bg: '#0369a1', value: 'Japanese'  },
+    { name: 'Desserts', icon: <IceCream2 size={22} />, bg: '#db2777', value: 'Italian'   },
   ];
 
+  // ── Close dropdown when clicking outside ────────────────────
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (locRef.current && !locRef.current.contains(e.target)) {
+        setLocOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // ── Fetch location suggestions as user types ──────────────────
+  useEffect(() => {
+    if (locInput.trim().length < 2) {
+      setLocSuggestions([]);
+      return;
+    }
+    // Debounce — wait 350ms after user stops typing
+    const timer = setTimeout(async () => {
+      try {
+        const res  = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(locInput)}&format=json&limit=5&addressdetails=1`
+        );
+        const data = await res.json();
+        setLocSuggestions(data);
+        setLocOpen(true);
+      } catch {
+        setLocSuggestions([]);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [locInput]);
+
+  // ── Data fetching ─────────────────────────────────────────────
   useEffect(() => {
     fetchVendors();
     fetchUserData();
+    fetchLocation();   // grab campus location on mount
   }, []);
 
   async function fetchUserData() {
     try {
-      const auth = getAuth();
+      const auth        = getAuth();
       const currentUser = auth.currentUser;
+      if (!currentUser) return;
 
-      if (!currentUser) {
-        console.warn('No logged-in user found');
-        return;
-      }
-
-      const userRef = doc(db, 'users', currentUser.uid);
+      const userRef  = doc(db, 'users', currentUser.uid);
       const userSnap = await getDoc(userRef);
-
       if (userSnap.exists()) {
         const userData = userSnap.data();
         setUser(userData);
-
-        // Assuming cart is stored in user document
         setCart(userData.cart || []);
-      } else {
-        console.warn('User document not found');
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -91,50 +106,91 @@ const VendorsPage = () => {
     try {
       setLoading(true);
       const vendorsCollection = collection(db, 'vendors');
-      const vendorSnapshot = await getDocs(vendorsCollection);
-      const vendorList = vendorSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const vendorSnapshot    = await getDocs(vendorsCollection);
+      const vendorList        = vendorSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       setVendors(vendorList);
     } catch (error) {
-      console.error('Error fetching restaurants:', error);
+      console.error('Error fetching vendors:', error);
     } finally {
       setLoading(false);
     }
   }
 
+  // ── Reverse-geocode the user's position into a readable name ──
+  function fetchLocation() {
+    if (!navigator.geolocation) return;
+
+    setLocLoading(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          // Free reverse-geocode via nominatim (no API key needed)
+          const res  = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`
+          );
+          const data = await res.json();
+
+          // Pick the most readable label available
+          const place =
+            data.address?.building     ||
+            data.address?.amenity      ||
+            data.address?.road         ||
+            data.address?.suburb       ||
+            data.address?.city         ||
+            'Your campus location';
+
+          setLocation(place);
+          setLocInput(place);
+        } catch {
+          setLocation('Your campus location');
+        } finally {
+          setLocLoading(false);
+        }
+      },
+      () => {
+        // User denied or error — fall back gracefully
+        setLocation('Your campus location');
+        setLocInput('Your campus location');
+        setLocLoading(false);
+      },
+      { timeout: 8000 }
+    );
+  }
+
+  // ── Filtering ─────────────────────────────────────────────────
   const filteredVendors = vendors.filter(vendor => {
     const matchesSearch = vendor.name.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (selectedCategory === 'deals') {
-      return matchesSearch && vendor.deals && vendor.deals.length > 0;
-    }
-
-    const matchesCategory = selectedCategory === 'All' ||
+    if (selectedCategory === 'deals') return matchesSearch && vendor.deals?.length > 0;
+    const matchesCategory =
+      selectedCategory === 'All' ||
       vendor.category?.toLowerCase().includes(selectedCategory.toLowerCase());
     return matchesSearch && matchesCategory;
   });
 
+  // ── Favourites toggle ─────────────────────────────────────────
   const toggleFavorite = (vendorId) => {
-    if (favorites.includes(vendorId)) {
-      setFavorites(favorites.filter(id => id !== vendorId));
-    } else {
-      setFavorites([...favorites, vendorId]);
+    setFavorites(prev =>
+      prev.includes(vendorId) ? prev.filter(id => id !== vendorId) : [...prev, vendorId]
+    );
+  };
+
+  // ── Category strip scroll ─────────────────────────────────────
+  const scroll = (direction) => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -280 : 280,
+        behavior: 'smooth',
+      });
     }
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <Typography variant="h5">Loading restaurants...</Typography>
-      </Box>
-    );
-  }
+  if (loading) return <KanteenLoader message="Finding restaurants near you…" />;
 
+  // ── Render ────────────────────────────────────────────────────
   return (
-    <Box sx={{ bgcolor: '#f0fdf4', minHeight: '100vh' }}>
-      {/* Custom Navbar */}
+    <div className="vp-page">
+
       <Navbar
         userData={user}
         searchQuery={searchQuery}
@@ -143,270 +199,175 @@ const VendorsPage = () => {
         cartCount={cart.length || 0}
       />
 
-      <Container maxWidth="xl" sx={{ py: 4, mt: '80px' }}>
-        {/* Category Icons Section */}
-        <Box sx={{ mb: 5 }}>
-          <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3, color: '#166534' }}>
-            Browse by Category
-          </Typography>
-          <Box sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: 'repeat(4, 1fr)', sm: 'repeat(4, 1fr)', md: 'repeat(8, 1fr)' },
-            gap: 2,
-            maxWidth: 1200
-          }}>
-            {categoryIcons.map((category, index) => (
-              <Box
-                key={index}
-                onClick={() => setSelectedCategory(category.value)}
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 1,
-                  p: 2,
-                  bgcolor: 'white',
-                  borderRadius: 3,
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  border: selectedCategory === category.value ? `2px solid ${category.color}` : '2px solid transparent',
-                  boxShadow: selectedCategory === category.value ? '0 8px 16px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.05)',
-                  '&:hover': {
-                    transform: 'translateY(-8px)',
-                    boxShadow: '0 12px 24px rgba(0,0,0,0.12)'
-                  }
-                }}
+      <div className="vp-container">
+
+        {/* ── Location search strip ────────────────────────────
+            GPS auto-detect on load. User can also type to search
+            and pick from Nominatim suggestions.                  */}
+        <div className="vp-location-wrap" ref={locRef}>
+          <div className="vp-location-strip">
+            <MapPin size={15} className="vp-location-pin" />
+            <input
+              className="vp-location-input"
+              type="text"
+              placeholder="Your campus location"
+              value={locInput}
+              onChange={(e) => { setLocInput(e.target.value); setLocOpen(true); }}
+              onFocus={() => { if (locSuggestions.length > 0) setLocOpen(true); }}
+            />
+            {/* GPS button — re-detect current position */}
+            <button
+              className="vp-location-gps"
+              onClick={fetchLocation}
+              title="Use my location"
+              aria-label="Detect my location"
+            >
+              {locLoading ? '…' : <MapPin size={13} />}
+            </button>
+            {/* Clear button */}
+            {locInput.length > 0 && (
+              <button
+                className="vp-location-clear"
+                onClick={() => { setLocInput(''); setLocSuggestions([]); setLocOpen(false); }}
+                aria-label="Clear location"
               >
-                <Box
-                  sx={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: '50%',
-                    bgcolor: category.color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '1.8rem',
-                    transition: 'transform 0.3s ease',
-                    '&:hover': {
-                      transform: 'scale(1.1) rotate(5deg)'
-                    }
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Suggestions dropdown */}
+          {locOpen && locSuggestions.length > 0 && (
+            <ul className="vp-loc-suggestions">
+              {locSuggestions.map((s, i) => (
+                <li
+                  key={i}
+                  className="vp-loc-suggestion-item"
+                  onClick={() => {
+                    setLocInput(s.display_name);
+                    setLocation(s.display_name);
+                    setLocSuggestions([]);
+                    setLocOpen(false);
                   }}
                 >
-                  {category.icon}
-                </Box>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: selectedCategory === category.value ? 'bold' : 600,
-                    color: selectedCategory === category.value ? category.color : '#1f2937',
-                    fontSize: '0.85rem',
-                    textAlign: 'center'
-                  }}
-                >
-                  {category.name}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-
-          {/* Clear Filter Button */}
-          {selectedCategory !== 'All' && (
-            <Box sx={{ mt: 2 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => setSelectedCategory('All')}
-                sx={{
-                  borderColor: '#16a34a',
-                  color: '#16a34a',
-                  textTransform: 'none',
-                  '&:hover': {
-                    borderColor: '#15803d',
-                    bgcolor: '#f0fdf4'
-                  }
-                }}
-              >
-                Clear Filter
-              </Button>
-            </Box>
-          )}
-        </Box>
-
-        {/* Vendors Grid */}
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3, color: '#166534' }}>
-            {selectedCategory === 'deals' ? '🔥 Hot Deals This Week' :
-             selectedCategory === 'All' ? 'All Restaurants' :
-             `${selectedCategory} Restaurants`}
-          </Typography>
-
-          {filteredVendors.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 8, bgcolor: 'white', borderRadius: 3 }}>
-              <Typography variant="h6" color="text.secondary">
-                No restaurants found. Try a different category!
-              </Typography>
-            </Box>
-          ) : (
-            <Grid container spacing={2.5}>
-              {filteredVendors.map(vendor => (
-                <Grid item xs={6} sm={4} md={3} key={vendor.id}>
-                  <Card sx={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    borderRadius: 2.5,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-6px)',
-                      boxShadow: '0 8px 20px rgba(0,0,0,0.12)'
-                    },
-                    bgcolor: 'white',
-                    overflow: 'hidden',
-                    border: '1px solid #f0f0f0'
-                  }}>
-                    <Box sx={{ position: 'relative', paddingTop: '75%', overflow: 'hidden' }}>
-                      <CardMedia
-                        component="img"
-                        image={vendor.image || 'https://via.placeholder.com/400x300'}
-                        alt={vendor.name}
-                        sx={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                      />
-                      {vendor.deals && vendor.deals.length > 0 && (
-                        <Box sx={{
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          bgcolor: '#ff6b35',
-                          color: 'white',
-                          px: 1,
-                          py: 0.5,
-                          borderRadius: 1.5,
-                          fontSize: '0.65rem',
-                          fontWeight: 'bold',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.5,
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-                        }}>
-                          <Flame size={12} /> DEAL
-                        </Box>
-                      )}
-                    </Box>
-                    <CardContent sx={{ flexGrow: 1, p: 1.5, display: 'flex', flexDirection: 'column' }}>
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          fontWeight: 'bold',
-                          mb: 0.5,
-                          fontSize: '0.9rem',
-                          color: '#166534',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {vendor.name}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          mb: 1,
-                          fontSize: '0.75rem',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {vendor.category}
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                        <Rating
-                          value={vendor.rating || 0}
-                          precision={0.1}
-                          size="small"
-                          readOnly
-                          sx={{ fontSize: '0.85rem' }}
-                        />
-                        <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 600 }}>
-                          ({vendor.rating || 'N/A'})
-                        </Typography>
-                      </Box>
-                      {vendor.deals && vendor.deals.length > 0 && (
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: '#ff6b35',
-                            fontWeight: 600,
-                            fontSize: '0.7rem',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            mb: 'auto'
-                          }}
-                        >
-                          🎉 {vendor.deals[0]}
-                        </Typography>
-                      )}
-                    </CardContent>
-                    <Box sx={{ p: 1.5, pt: 0, display: 'flex', gap: 0.75 }}>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        size="small"
-                        sx={{
-                          bgcolor: '#16a34a',
-                          borderRadius: 1.5,
-                          py: 0.6,
-                          fontSize: '0.7rem',
-                          fontWeight: 'bold',
-                          textTransform: 'none',
-                          '&:hover': { bgcolor: '#15803d' }
-                        }}
-                        onClick={() => navigate(`/menu/${vendor.id}`)}
-                      >
-                        View Menu
-                      </Button>
-                      <IconButton
-                        onClick={() => toggleFavorite(vendor.id)}
-                        size="small"
-                        sx={{
-                          color: favorites.includes(vendor.id) ? '#ff6b35' : '#d1d5db',
-                          border: '1.5px solid',
-                          borderColor: favorites.includes(vendor.id) ? '#ff6b35' : '#e5e7eb',
-                          borderRadius: 1.5,
-                          width: 30,
-                          height: 30,
-                          flexShrink: 0,
-                          transition: 'all 0.2s ease',
-                          '&:hover': {
-                            transform: 'scale(1.15)',
-                            borderColor: '#ff6b35',
-                            bgcolor: favorites.includes(vendor.id) ? '#fff7ed' : 'transparent'
-                          }
-                        }}
-                      >
-                        <Heart size={14} fill={favorites.includes(vendor.id) ? '#ff6b35' : 'none'} />
-                      </IconButton>
-                    </Box>
-                  </Card>
-                </Grid>
+                  <MapPin size={12} className="vp-loc-s-pin" />
+                  <span>{s.display_name}</span>
+                </li>
               ))}
-            </Grid>
+            </ul>
           )}
-        </Box>
-      </Container>
-    </Box>
+        </div>
+
+        {/* ── "What are you craving?" heading ─────────────────  */}
+        <p className="vp-craving-label">WHAT ARE YOU CRAVING TODAY?</p>
+
+        {/* ── Circular category icons ──────────────────────────
+            Each category is a filled circle with an icon above
+            and the category name below — matching the mockup.  */}
+        <div className="vp-cat-wrapper">
+          <div className="vp-cat-nav">
+
+            <button className="vp-cat-arrow" onClick={() => scroll('left')} aria-label="Scroll left">
+              <ChevronLeft size={16} />
+            </button>
+
+            <div className="vp-cat-track" ref={scrollRef}>
+              {categoryIcons.map((cat, i) => (
+                <button
+                  key={i}
+                  className={`vp-cat-item${selectedCategory === cat.value ? ' active' : ''}`}
+                  onClick={() => setSelectedCategory(cat.value)}
+                >
+                  {/* Filled circle — uses category bg colour, brightens when active */}
+                  <div
+                    className="vp-cat-circle"
+                    style={{ background: cat.bg }}
+                  >
+                    {cat.icon}
+                  </div>
+                  {/* Label below the circle */}
+                  <span className="vp-cat-label">{cat.name}</span>
+                </button>
+              ))}
+            </div>
+
+            <button className="vp-cat-arrow" onClick={() => scroll('right')} aria-label="Scroll right">
+              <ChevronRight size={16} />
+            </button>
+
+          </div>
+        </div>
+
+        {/* ── Results bar ──────────────────────────────────────  */}
+        <div className="vp-results-bar">
+          <span className="vp-results-count">Available on campus</span>
+          {selectedCategory !== 'All' && (
+            <button className="vp-clear-btn" onClick={() => setSelectedCategory('All')}>
+              Clear ✕
+            </button>
+          )}
+        </div>
+
+        {/* ── Vendor grid ──────────────────────────────────────  */}
+        <div className="vp-grid">
+          {filteredVendors.length === 0 ? (
+            <div className="vp-empty">
+              <span className="vp-empty-icon">🍽️</span>
+              No restaurants found
+            </div>
+          ) : (
+            filteredVendors.map(vendor => (
+              <div
+                key={vendor.id}
+                className="vp-card"
+                onClick={() => navigate(`/menu/${vendor.id}`)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/menu/${vendor.id}`)}
+                aria-label={`View ${vendor.name} menu`}
+              >
+                {/* Image */}
+                <div className="vp-card-img-wrap">
+                  <img
+                    src={vendor.image || 'https://via.placeholder.com/400x220'}
+                    alt={vendor.name}
+                    loading="lazy"
+                  />
+                  {vendor.deals?.length > 0 && <span className="vp-deal-badge">Deal</span>}
+                  <button
+                    className="vp-fav-btn"
+                    onClick={(e) => { e.stopPropagation(); toggleFavorite(vendor.id); }}
+                    aria-label="Toggle favourite"
+                  >
+                    <Heart
+                      size={16}
+                      color={favorites.includes(vendor.id) ? '#dc2626' : '#9ca3af'}
+                      fill={favorites.includes(vendor.id) ? '#dc2626' : 'none'}
+                    />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="vp-card-body">
+                  <p className="vp-card-name">{vendor.name}</p>
+                  {/* Description shown if available — matches mockup */}
+                  {vendor.description && (
+                    <p className="vp-card-description">{vendor.description}</p>
+                  )}
+                  <div className="vp-card-meta">
+                    <span className="vp-card-rating">
+                      <Star size={14} fill="#fbbf24" color="#fbbf24" />
+                      {vendor.rating ?? 'N/A'} rating
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+      </div>
+    </div>
   );
 };
 

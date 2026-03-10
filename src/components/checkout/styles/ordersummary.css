@@ -1,0 +1,226 @@
+/* ═══════════════════════════════════════════════════════════════
+   ordersummary.css  —  Kanteen brand
+   Font: Poppins  |  Red: #dc2626  |  Dark: #1f2937
+   ═══════════════════════════════════════════════════════════════ */
+
+* { font-family: 'Poppins', system-ui, sans-serif; }
+
+.order-summary-wrapper {
+  position: sticky;
+  top: 100px;
+}
+
+/* ── Card ────────────────────────────────────────────────────── */
+.summary-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1.75rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.summary-card:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.09);
+  border-color: #fca5a5;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.summary-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+.summary-header svg { color: #dc2626; }
+.summary-header h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* ── Items list ──────────────────────────────────────────────── */
+.summary-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+.summary-items::-webkit-scrollbar       { width: 3px; }
+.summary-items::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 10px; }
+.summary-items::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 10px; }
+
+/* ── Individual item ─────────────────────────────────────────── */
+.summary-item {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.625rem;
+  background: #f9f9f9;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+  animation: slideIn 0.35s ease-out backwards;
+}
+.summary-item:hover { background: #f3f4f6; }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0);     }
+}
+
+.item-image {
+  width: 54px; height: 54px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #e5e7eb;
+}
+.item-image img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.summary-item:hover .item-image img { transform: scale(1.06); }
+
+.item-details        { flex: 1; min-width: 0; }
+.item-details h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-details p {
+  font-size: 0.775rem;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 500;
+}
+.item-price {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #dc2626;
+  white-space: nowrap;
+}
+
+/* ── Dividers ────────────────────────────────────────────────── */
+.summary-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 1.25rem 0;
+}
+.summary-divider.thin { margin: 0.75rem 0; }
+
+/* ── Totals breakdown ────────────────────────────────────────── */
+.summary-breakdown { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.row-label { font-size: 0.875rem; color: #6b7280; font-weight: 500; }
+.row-value { font-size: 0.875rem; font-weight: 600; color: #1f2937; }
+
+.total-row { padding-top: 0.4rem; }
+.total-row .row-label { font-size: 1rem;   font-weight: 700; color: #1f2937; }
+.total-row .row-value { font-size: 1.25rem; font-weight: 800; color: #dc2626; }
+
+/* ── Place Order button ──────────────────────────────────────── */
+.place-order-btn {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 1rem 1.5rem;
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: 'Poppins', sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(220,38,38,0.22);
+  position: relative;
+  overflow: hidden;
+}
+.place-order-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  transition: left 0.45s ease;
+}
+.place-order-btn:hover::before { left: 100%; }
+.place-order-btn:hover {
+  background: #b91c1c;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(220,38,38,0.3);
+}
+.place-order-btn:active  { transform: translateY(0); }
+.place-order-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.place-order-btn.processing { pointer-events: none; }
+
+/* Spinner */
+.button-spinner {
+  width: 17px; height: 17px;
+  border: 2.5px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Secure note — red tint instead of green ────────────────── */
+.secure-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+  padding: 0.65rem 0.75rem;
+  background: #fef2f2;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+}
+.secure-note svg {
+  color: #dc2626;
+  flex-shrink: 0;
+}
+.secure-note p {
+  font-size: 0.775rem;
+  color: #7f1d1d;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .order-summary-wrapper { position: static; }
+  .summary-card { padding: 1.25rem; }
+}
+@media (max-width: 640px) {
+  .summary-header h2   { font-size: 1rem; }
+  .summary-items       { max-height: 220px; }
+  .item-image          { width: 46px; height: 46px; }
+  .item-details h4     { font-size: 0.8rem; }
+  .place-order-btn     { padding: 0.875rem; font-size: 0.9rem; }
+}

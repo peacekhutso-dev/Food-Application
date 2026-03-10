@@ -12,7 +12,7 @@
 .wrapper h1{
     font-size: 36px;
     text-align: center;
-    background: url('../../assets/images/foodgo.png') no-repeat center;
+
     /*-webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -25,15 +25,15 @@
 
     text-indent: -9999px;
     overflow: hidden;
- 
-     
+
+
 }
 /*.wrapper h1 img{
     width: 340px;
     height: 100px;
     -webkit-text-fill-color: transparent;
     background: url('./foodgo.png');
-    
+
 }*/
 .wrapper .input-box{
     position: relative;
@@ -112,7 +112,8 @@
     text-decoration: underline;
 }
 .app {
-  background-image: url('../../assets/images/udubs.jpg');
+  /* background-image: url('../../assets/images/udubs.jpg'); */ /* REMOVED - no more background image */
+  background-color: #ffffff; /* Clean white background */
   background-size: cover;
   min-height: 100vh;
   display: flex;

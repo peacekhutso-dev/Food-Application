@@ -6,7 +6,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import OrderComplete from './components/checkout/OrderComplete';
 import TrackOrder from './components/checkout/TrackOrder';
 
-import LandingPage from './pages/LandingPage';
 import MenuPage from './pages/MenuPage';
 import SignupLogin from './pages/SignupLogin';
 import VendorPage from './pages/VendorPage';
@@ -20,43 +19,21 @@ function App() {
       <CartProvider>
         <Router>
           <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/auth" element={<SignupLogin />} />
 
-            {/* Protected Routes */}
-            <Route
-              path="/vendor"
-              element={
-                <ProtectedRoute>
-                  <VendorPage />
-                </ProtectedRoute>
-              }
-            />
+            {/* ── Public Routes ──────────────────────────────────────
+                Guests and logged-in users can both access these.     */}
+            <Route path="/"               element={<SignupLogin />} />
+            <Route path="/vendor"         element={<VendorPage />} />
+            <Route path="/menu/:vendorId" element={<MenuPage />}   />
+            <Route path="/CartPage"       element={<CartApp />}    />
 
-            <Route
-              path="/menu/:vendorId"
-              element={
-                <ProtectedRoute>
-                  <MenuPage />
-                </ProtectedRoute>
-              }
-            />
-
+            {/* ── Protected Routes ───────────────────────────────────
+                Guests are redirected to "/" until they log in.       */}
             <Route
               path="/ProfilePage"
               element={
                 <ProtectedRoute>
                   <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/CartPage"
-              element={
-                <ProtectedRoute>
-                  <CartApp />
                 </ProtectedRoute>
               }
             />
@@ -68,16 +45,22 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/OrderComplete" element={
-              <ProtectedRoute>
-                <OrderComplete />
-              </ProtectedRoute>
-            } />
-            <Route path="/TrackOrder" element={
-              <ProtectedRoute>
-                <TrackOrder />
-              </ProtectedRoute>
-            } />
+            <Route
+              path="/OrderComplete"
+              element={
+                <ProtectedRoute>
+                  <OrderComplete />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/TrackOrder"
+              element={
+                <ProtectedRoute>
+                  <TrackOrder />
+                </ProtectedRoute>
+              }
+            />
 
           </Routes>
         </Router>

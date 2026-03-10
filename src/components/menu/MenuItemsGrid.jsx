@@ -12,28 +12,28 @@ import {
 } from '@mui/material';
 import { FaHeart, FaRegHeart, FaShoppingCart } from 'react-icons/fa';
 
+/* ─────────────────────────────────────────────────────────────────
+   MenuItemsGrid
+   Colours: brand red #dc2626, dark #1f2937, gold #fbbf24
+   Font: Poppins (loaded via index.html)
+───────────────────────────────────────────────────────────────── */
 const MenuItemsGrid = ({ items, favorites, toggleFavorite, addToCart }) => {
+
+  // ── Empty state ───────────────────────────────────────────────
   if (items.length === 0) {
     return (
       <Fade in timeout={500}>
-        <Box sx={{ 
-          textAlign: 'center', 
-          py: 12, 
-          bgcolor: 'white', 
+        <Box sx={{
+          textAlign: 'center',
+          py: 12,
+          bgcolor: 'white',
           borderRadius: 3,
           boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
         }}>
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              color: '#9ca3af',
-              fontWeight: 600,
-              mb: 1
-            }}
-          >
+          <Typography variant="h6" sx={{ color: '#9ca3af', fontWeight: 600, mb: 1, fontFamily: 'Poppins, sans-serif' }}>
             No menu items found
           </Typography>
-          <Typography variant="body2" sx={{ color: '#6b7280' }}>
+          <Typography variant="body2" sx={{ color: '#6b7280', fontFamily: 'Poppins, sans-serif' }}>
             Try adjusting your search or filter
           </Typography>
         </Box>
@@ -46,224 +46,176 @@ const MenuItemsGrid = ({ items, favorites, toggleFavorite, addToCart }) => {
       {items.map((item, index) => (
         <Grid item xs={12} sm={6} md={4} lg={3} key={item.id}>
           <Fade in timeout={300 + (index * 50)}>
-            <Card
-              sx={{
-                height: '550px',
-                display: 'flex',
-                flexDirection: 'column',
-                borderRadius: '12px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:hover': {
-                  transform: 'translateY(-8px)',
-                  boxShadow: '0 12px 28px rgba(0,0,0,0.15)'
-                },
-                bgcolor: 'white',
+            <Card sx={{
+              height: '520px',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '14px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              border: '1px solid #e5e7eb',
+              transition: 'all 0.25s ease',
+              '&:hover': {
+                transform: 'translateY(-6px)',
+                boxShadow: '0 12px 28px rgba(0,0,0,0.1)',
+                borderColor: '#d1d5db'
+              },
+              bgcolor: 'white',
+              overflow: 'hidden',
+              fontFamily: 'Poppins, sans-serif'
+            }}>
+
+              {/* ── Image ── */}
+              <Box sx={{
+                position: 'relative',
+                width: '100%',
+                height: '220px',
                 overflow: 'hidden',
-                border: '1px solid #f3f4f6'
-              }}
-            >
-              {/* Image Section - Fixed Height */}
-              <Box 
-                sx={{ 
-                  position: 'relative', 
-                  width: '100%',
-                  height: '250px',
-                  overflow: 'hidden',
-                  flexShrink: 0,
-                  bgcolor: '#f3f4f6'
-                }}
-              >
+                flexShrink: 0,
+                bgcolor: '#f3f4f6'
+              }}>
                 <CardMedia
                   component="img"
                   image={item.image || 'https://via.placeholder.com/400x300?text=No+Image'}
                   alt={item.name}
                   sx={{
                     width: '100%',
-                    height: '250px',
-                    minHeight: '250px',
-                    maxHeight: '250px',
+                    height: '220px',
                     objectFit: 'cover',
                     objectPosition: 'center',
                     display: 'block',
-                    transition: 'transform 0.3s ease',
-                    '&:hover': {
-                      transform: 'scale(1.05)'
-                    }
+                    transition: 'transform 0.35s ease',
+                    '&:hover': { transform: 'scale(1.05)' }
                   }}
                 />
-                
-                {/* Favorite Button */}
+
+                {/* Favourite button */}
                 <IconButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorite(item.id);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
                   sx={{
-                    position: 'absolute',
-                    top: 12,
-                    right: 12,
+                    position: 'absolute', top: 10, right: 10,
                     bgcolor: 'white',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    width: 36,
-                    height: 36,
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      bgcolor: 'white',
-                      transform: 'scale(1.15)'
-                    }
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                    width: 34, height: 34,
+                    transition: 'transform 0.2s ease',
+                    '&:hover': { bgcolor: 'white', transform: 'scale(1.15)' }
                   }}
                 >
-                  {favorites.includes(item.id) ? (
-                    <FaHeart color="#ff6b35" size={16} />
-                  ) : (
-                    <FaRegHeart color="#6b7280" size={16} />
-                  )}
+                  {favorites.includes(item.id)
+                    ? <FaHeart color="#dc2626" size={15} />
+                    : <FaRegHeart color="#9ca3af" size={15} />
+                  }
                 </IconButton>
               </Box>
 
-              {/* Content Section - Fixed Height */}
-              <CardContent
-                sx={{
-                  height: '300px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  p: 2.5,
-                  flexGrow: 0,
-                  flexShrink: 0
-                }}
-              >
-                {/* Item Name - Fixed Height */}
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
-                    fontWeight: 700, 
-                    mb: 0.5,
-                    fontSize: '1rem',
-                    height: '2.5rem',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    color: '#166534',
-                    flexShrink: 0
-                  }}
-                >
+              {/* ── Content ── */}
+              <CardContent sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                p: 2,
+                fontFamily: 'Poppins, sans-serif'
+              }}>
+
+                {/* Name */}
+                <Typography sx={{
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  color: '#1f2937',
+                  fontFamily: 'Poppins, sans-serif',
+                  mb: 0.4,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  lineHeight: 1.35
+                }}>
                   {item.name}
                 </Typography>
 
-                {/* Category - Fixed Height */}
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: '#6b7280', 
-                    fontSize: '0.8rem', 
-                    mb: 1,
-                    fontWeight: 500,
-                    height: '1.2rem',
-                    flexShrink: 0
-                  }}
-                >
+                {/* Category */}
+                <Typography sx={{
+                  fontSize: '0.75rem',
+                  color: '#6b7280',
+                  fontFamily: 'Poppins, sans-serif',
+                  fontWeight: 500,
+                  mb: 1
+                }}>
                   {item.category || 'Food'}
                 </Typography>
 
-                {/* Rating - Fixed Height */}
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, height: '1.5rem', flexShrink: 0 }}>
-                  <Rating 
-                    value={item.rating || 4.5} 
-                    readOnly 
-                    size="small" 
-                    precision={0.1}
-                    sx={{ 
-                      fontSize: '1rem',
-                      '& .MuiRating-iconFilled': {
-                        color: '#fbbf24'
-                      }
+                {/* Rating */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                  <Rating
+                    value={item.rating || 4.5}
+                    readOnly size="small" precision={0.1}
+                    sx={{
+                      fontSize: '0.9rem',
+                      '& .MuiRating-iconFilled': { color: '#fbbf24' }
                     }}
                   />
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      ml: 1, 
-                      color: '#374151',
-                      fontWeight: 700,
-                      fontSize: '0.8rem'
-                    }}
-                  >
+                  <Typography sx={{
+                    fontSize: '0.75rem', color: '#4b5563',
+                    fontWeight: 600, fontFamily: 'Poppins, sans-serif'
+                  }}>
                     ({item.rating || 4.5})
                   </Typography>
                 </Box>
 
-                {/* Description - Fixed Height */}
-                <Box 
-                  sx={{ 
-                    height: '48px',
-                    mb: 1.5,
-                    overflow: 'hidden',
-                    flexShrink: 0
-                  }}
-                >
-                  <Typography 
-                    variant="body2" 
-                    color="text.secondary"
-                    sx={{
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      fontSize: '0.85rem',
-                      lineHeight: 1.4,
-                      color: '#9ca3af'
-                    }}
-                  >
-                    {item.description || 'Delicious menu item'}
-                  </Typography>
-                </Box>
+                {/* Description */}
+                <Typography sx={{
+                  fontSize: '0.8rem',
+                  color: '#9ca3af',
+                  fontFamily: 'Poppins, sans-serif',
+                  lineHeight: 1.4,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  mb: 1.5
+                }}>
+                  {item.description || 'Delicious menu item'}
+                </Typography>
 
-                {/* Price - Fixed Height */}
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
-                    fontWeight: 700, 
-                    color: '#ff6b35', 
-                    fontSize: '1.3rem',
-                    mb: 2,
-                    height: '2rem',
-                    flexShrink: 0
-                  }}
-                >
+                {/* Price */}
+                <Typography sx={{
+                  fontWeight: 700,
+                  fontSize: '1.15rem',
+                  color: '#dc2626',        /* brand red */
+                  fontFamily: 'Poppins, sans-serif',
+                  mb: 1.5
+                }}>
                   {item.price ? `R${item.price.toFixed(2)}` : 'Price not available'}
                 </Typography>
 
-                {/* Add to Cart Button - Pushed to Bottom */}
+                {/* Add to Cart — pushed to bottom */}
                 <Box sx={{ mt: 'auto' }}>
                   <Button
                     fullWidth
                     variant="contained"
-                    startIcon={<FaShoppingCart size={14} />}
+                    startIcon={<FaShoppingCart size={13} />}
                     onClick={() => addToCart(item)}
                     sx={{
-                      bgcolor: '#16a34a',
+                      bgcolor: '#dc2626',       /* brand red */
                       color: 'white',
                       fontWeight: 700,
-                      py: 1.2,
-                      borderRadius: 2,
+                      py: 1.1,
+                      borderRadius: '8px',
                       textTransform: 'none',
-                      fontSize: '0.9rem',
-                      boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
+                      fontSize: '0.875rem',
+                      fontFamily: 'Poppins, sans-serif',
+                      boxShadow: '0 4px 12px rgba(220,38,38,0.2)',
                       transition: 'all 0.2s ease',
                       '&:hover': {
-                        bgcolor: '#15803d',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 6px 16px rgba(22, 163, 74, 0.35)'
+                        bgcolor: '#b91c1c',
+                        transform: 'translateY(-1px)',
+                        boxShadow: '0 6px 16px rgba(220,38,38,0.3)'
                       }
                     }}
                   >
                     Add to Cart
                   </Button>
                 </Box>
+
               </CardContent>
             </Card>
           </Fade>

@@ -1,90 +1,70 @@
 import { Box, Chip, Typography } from '@mui/material';
-import {
-  MdRestaurant,
-  MdFastfood,
-  MdLocalDrink,
-  MdIcecream
-} from 'react-icons/md';
+import { MdRestaurant, MdFastfood, MdLocalDrink, MdIcecream } from 'react-icons/md';
 
+/* ─────────────────────────────────────────────────────────────────
+   CategoryFilter
+   Active state uses brand red #dc2626.
+   Font: Poppins
+───────────────────────────────────────────────────────────────── */
 const CategoryFilter = ({ selectedCategory, setSelectedCategory }) => {
-  // Define main categories only (not specific food types)
+
   const mainCategories = [
-    { 
-      name: 'All', 
-      icon: <MdRestaurant />, 
-      color: '#6b7280',
-      bgColor: '#f3f4f6'
-    },
-    { 
-      name: 'Food', 
-      icon: <MdFastfood />, 
-      color: '#16a34a',
-      bgColor: '#dcfce7'
-    },
-    { 
-      name: 'Drinks', 
-      icon: <MdLocalDrink />, 
-      color: '#2563eb',
-      bgColor: '#dbeafe'
-    },
-    { 
-      name: 'Desserts', 
-      icon: <MdIcecream />, 
-      color: '#ec4899',
-      bgColor: '#fce7f3'
-    }
+    { name: 'All',      icon: <MdRestaurant />, activeColor: '#1f2937', lightBg: '#f3f4f6' },
+    { name: 'Food',     icon: <MdFastfood />,   activeColor: '#dc2626', lightBg: '#fef2f2' },
+    { name: 'Drinks',   icon: <MdLocalDrink />, activeColor: '#2563eb', lightBg: '#dbeafe' },
+    { name: 'Desserts', icon: <MdIcecream />,   activeColor: '#ec4899', lightBg: '#fce7f3' },
   ];
 
   return (
     <Box sx={{ mb: 4 }}>
-      <Typography 
-        variant="h6" 
-        sx={{ 
-          fontWeight: 700, 
-          mb: 2,
-          color: '#1f2937'
-        }}
-      >
+      <Typography sx={{
+        fontWeight: 700,
+        mb: 2,
+        fontSize: '1rem',
+        color: '#1f2937',
+        fontFamily: 'Poppins, sans-serif'
+      }}>
         Categories
       </Typography>
-      
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          gap: 1.5, 
-          flexWrap: 'wrap',
-          pb: 2,
-          borderBottom: '2px solid #e5e7eb'
-        }}
-      >
-        {mainCategories.map((category) => {
-          const isSelected = selectedCategory === category.name;
-          
+
+      <Box sx={{
+        display: 'flex',
+        gap: 1.5,
+        flexWrap: 'wrap',
+        pb: 2,
+        borderBottom: '2px solid #e5e7eb'
+      }}>
+        {mainCategories.map((cat) => {
+          const isSelected = selectedCategory === cat.name;
+
           return (
             <Chip
-              key={category.name}
-              icon={category.icon}
-              label={category.name}
-              onClick={() => setSelectedCategory(category.name)}
+              key={cat.name}
+              icon={cat.icon}
+              label={cat.name}
+              onClick={() => setSelectedCategory(cat.name)}
               sx={{
-                px: 2,
+                px: 1.5,
                 py: 2.5,
-                fontSize: '0.95rem',
+                fontSize: '0.875rem',
                 fontWeight: isSelected ? 700 : 600,
-                bgcolor: isSelected ? category.color : category.bgColor,
-                color: isSelected ? 'white' : category.color,
-                border: `2px solid ${isSelected ? category.color : 'transparent'}`,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                cursor: 'pointer',
+                fontFamily: 'Poppins, sans-serif',
+                /* Active: filled with the category colour
+                   Inactive: light tinted background          */
+                bgcolor:    isSelected ? cat.activeColor : cat.lightBg,
+                color:      isSelected ? '#ffffff'       : cat.activeColor,
+                border:     `2px solid ${isSelected ? cat.activeColor : 'transparent'}`,
+                transition: 'all 0.2s ease',
+                cursor:     'pointer',
                 '&:hover': {
-                  bgcolor: category.color,
-                  color: 'white',
+                  bgcolor:   cat.activeColor,
+                  color:     '#ffffff',
                   transform: 'translateY(-2px)',
-                  boxShadow: `0 4px 12px ${category.color}40`
+                  boxShadow: `0 4px 12px ${cat.activeColor}33`
                 },
                 '& .MuiChip-icon': {
-                  color: 'inherit',
-                  fontSize: '1.3rem'
+                  color:    'inherit',
+                  fontSize: '1.2rem'
                 }
               }}
             />
