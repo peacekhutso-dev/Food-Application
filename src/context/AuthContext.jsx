@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase_data/firebase';
+import KanteenLoader from '../components/KanteenLoader';
 
 const AuthContext = createContext();
 
@@ -22,14 +23,13 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userDetails, setUserDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentUser,  setCurrentUser]  = useState(null);
+  const [userDetails,  setUserDetails]  = useState(null);
+  const [loading,      setLoading]      = useState(true);
 
   useEffect(() => {
     let unsubscribeUserData;
 
-    // Set persistence for session
     setPersistence(auth, browserLocalPersistence)
       .then(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -40,11 +40,7 @@ export const AuthProvider = ({ children }) => {
             unsubscribeUserData = onSnapshot(
               userRef,
               (userSnap) => {
-                if (userSnap.exists()) {
-                  setUserDetails(userSnap.data());
-                } else {
-                  setUserDetails(null);
-                }
+                setUserDetails(userSnap.exists() ? userSnap.data() : null);
               },
               (error) => {
                 console.error('Error listening to user data:', error);
@@ -57,7 +53,6 @@ export const AuthProvider = ({ children }) => {
           setLoading(false);
         });
 
-        // Cleanup on unmount
         return () => {
           unsubscribeAuth();
           if (unsubscribeUserData) unsubscribeUserData();
@@ -69,7 +64,6 @@ export const AuthProvider = ({ children }) => {
       });
   }, []);
 
-  // Login
   const login = async (email, password) => {
     try {
       await setPersistence(auth, browserLocalPersistence);
@@ -81,7 +75,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Signup
   const signup = async (email, password, name, phone) => {
     try {
       await setPersistence(auth, browserLocalPersistence);
@@ -106,7 +99,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout
   const logout = async () => {
     try {
       await signOut(auth);
@@ -129,7 +121,9 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {loading ? <p style={{ textAlign: 'center', marginTop: '5rem' }}>Loading...</p> : children}
+      {/* Show branded loader while Firebase resolves auth state,
+          then render the app — guests and logged-in users both pass through */}
+      {loading ? <KanteenLoader /> : children}
     </AuthContext.Provider>
   );
 };

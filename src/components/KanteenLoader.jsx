@@ -4,8 +4,8 @@ const PP = 'Poppins, system-ui, sans-serif';
 
 /* ─────────────────────────────────────────────────────────────────
    KanteenLoader.jsx
-   Full-screen loading overlay — blurs the page behind it and
-   pulses the KANTEEN wordmark until loading is done.
+   Full-screen loading overlay — each letter of KANTEEN bounces
+   up and down in a staggered wave, all in solid red.
 
    USAGE:
      import KanteenLoader from '../components/KanteenLoader';
@@ -15,12 +15,13 @@ const PP = 'Poppins, system-ui, sans-serif';
      message — shown below the wordmark (default: "Loading…")
      <KanteenLoader message="Finding restaurants near you…" />
 ───────────────────────────────────────────────────────────────── */
+const LETTERS = ['K', 'A', 'N', 'T', 'E', 'E', 'N'];
+
 const KanteenLoader = ({ message = 'Loading…' }) => {
   return (
     <Box sx={{
       position: 'fixed',
       inset: 0,
-      /* Blurs whatever is rendered behind this overlay */
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
       bgcolor: 'rgba(255,255,255,0.75)',
@@ -32,27 +33,42 @@ const KanteenLoader = ({ message = 'Loading…' }) => {
       gap: 2,
     }}>
 
-      {/* ── KANTEEN wordmark — pulses on/off ── */}
-      <Typography sx={{
-        fontFamily: PP,
-        fontWeight: 900,
-        fontSize: '42px',
-        letterSpacing: '8px',
-        /* Red → dark gradient across the letters */
-        background: 'linear-gradient(90deg, #dc2626 0%, #1f2937 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
-        userSelect: 'none',
-        /* Smooth fade in-and-out pulse, loops forever */
-        animation: 'kantPulse 1.6s ease-in-out infinite',
-        '@keyframes kantPulse': {
-          '0%,100%': { opacity: 1,    transform: 'scale(1)'    },
-          '50%':     { opacity: 0.15, transform: 'scale(0.97)' },
+      {/* ── KANTEEN wordmark — each letter bounces in a wave ── */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: '2px',
+
+        /* Define the bounce keyframe once at this level */
+        '@keyframes kantBounce': {
+          '0%,  100%': { transform: 'translateY(0px)'   },
+          '40%':        { transform: 'translateY(-18px)' },
+          '60%':        { transform: 'translateY(-10px)' },
         },
       }}>
-        KANTEEN
-      </Typography>
+        {LETTERS.map((letter, i) => (
+          <Typography
+            key={i}
+            sx={{
+              fontFamily: PP,
+              fontWeight: 900,
+              fontSize: '42px',
+              letterSpacing: '4px',
+              color: '#dc2626',
+              userSelect: 'none',
+              display: 'inline-block',
+              lineHeight: 1,
+
+              /* Each letter starts its bounce a little later = wave */
+              animation: `kantBounce 1.2s ease-in-out infinite`,
+              animationDelay: `${i * 0.1}s`,
+            }}
+          >
+            {letter}
+          </Typography>
+        ))}
+      </Box>
 
       {/* ── Sub-label ── */}
       <Typography sx={{

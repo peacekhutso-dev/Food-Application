@@ -1,26 +1,6 @@
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardMedia,
-  Chip,
-  Container,
-  Grid,
-  Rating,
-  Typography,
-  Snackbar,
-  Alert,
-} from '@mui/material';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { db, auth } from '../firebase_data/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { useCart } from '../context/CartContext';
-import Navbar from '../components/landing/Navbar';
-import KanteenLoader from '../components/KanteenLoader';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { ArrowLeft, Plus, Minus, ShoppingCart, Star, Clock, Search, X, TrendingUp } from 'lucide-react';
 import {
   MdCoffee,
   MdFastfood,
@@ -28,467 +8,392 @@ import {
   MdLocalPizza,
   MdLunchDining,
   MdRestaurant,
+  MdRamenDining
 } from 'react-icons/md';
+import { useNavigate, useParams } from 'react-router-dom';
+import { db, auth } from '../firebase_data/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { useCart } from '../context/CartContext';
+import Navbar from '../components/landing/Navbar';
+import KanteenLoader from '../components/KanteenLoader';
+import './MenuPage.css';
 
-/* ─────────────────────────────────────────────────────────────────
-   Menu (MenuPage)
-   Brand colours: red #dc2626, dark #1f2937, gold #fbbf24, white #fff
-   Font: Poppins (loaded in index.html)
-───────────────────────────────────────────────────────────────── */
+// ── Category icon map ─────────────────────────────────────────
+const CAT_ICONS = {
+  Pizza:    <MdLocalPizza />,
+  Burgers:  <MdFastfood />,
+  Salads:   <MdLunchDining />,
+  Coffee:   <MdCoffee />,
+  Desserts: <MdIcecream />,
+  Snacks:   <MdFastfood />,
+  Ramen:    <MdRamenDining />,
+  All:      <MdRestaurant />,
+};
 
-// Shared font shorthand
-const PP = 'Poppins, system-ui, sans-serif';
+const SORT_OPTS = [
+  { label: 'Top Rated',  value: 'rating'     },
+  { label: 'Price ↑',    value: 'price-low'  },
+  { label: 'Price ↓',    value: 'price-high' },
+  { label: 'Popular',    value: 'popular'    },
+];
 
-const Menu = () => {
+const MenuPage = () => {
   const { vendorId } = useParams();
   const navigate     = useNavigate();
-  const { addToCart: addToCartContext } = useCart();
+  const { addToCart: addToCartContext, cartItems, getTotalItems } = useCart();
+  const catBarRef    = useRef(null);
+  const [catSticky,  setCatSticky] = useState(false);
 
   const [vendor,          setVendor]          = useState(null);
   const [menuItems,       setMenuItems]       = useState([]);
-  const [filteredItems,   setFilteredItems]   = useState([]);
-  const [selectedCategory,setSelectedCategory]= useState('All');
+  const [selectedCat,     setSelectedCat]     = useState('All');
   const [searchQuery,     setSearchQuery]     = useState('');
   const [sortBy,          setSortBy]          = useState('rating');
   const [currentUser,     setCurrentUser]     = useState(null);
-  const [userData,        setUserData]        = useState(null);
-  const [snackbarOpen,    setSnackbarOpen]    = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [addingItem,      setAddingItem]      = useState(false);
+  const [snack,           setSnack]           = useState({ open: false, msg: '', type: 'success' });
+  const [addingId,        setAddingId]        = useState(null);  // item-level loading
+  const [quantities,      setQuantities]      = useState({});    // item quantities before adding
   const [loading,         setLoading]         = useState(true);
+  const [authReady,       setAuthReady]       = useState(false);
   const [error,           setError]           = useState('');
+  const [cartOpen,        setCartOpen]        = useState(false);
 
-  // ── Auth listener ─────────────────────────────────────────────
+  // ── Auth ──────────────────────────────────────────────────────
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser(user);
-        fetchUserData(user.uid);
-      } else {
-        navigate('/login');
-      }
+    const unsub = onAuthStateChanged(auth, user => {
+      setCurrentUser(user || null);
+      setAuthReady(true);
     });
-    return () => unsubscribe();
-  }, [navigate]);
+    return () => unsub();
+  }, []);
 
+  // ── Data ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (currentUser && vendorId) fetchVendorAndMenu();
-  }, [vendorId, currentUser]);
+    if (authReady && vendorId) fetchAll();
+  }, [authReady, vendorId]);
 
-  useEffect(() => {
-    filterMenuItems();
-  }, [menuItems, selectedCategory, searchQuery, sortBy]);
-
-  // ── Data fetching ─────────────────────────────────────────────
-  async function fetchUserData(userId) {
+  async function fetchAll() {
+    setLoading(true); setError('');
     try {
-      const userSnap = await getDoc(doc(db, 'users', userId));
-      if (userSnap.exists()) setUserData(userSnap.data());
-    } catch {
-      setError('Unable to load your profile. Please refresh the page.');
-    }
-  }
+      const vSnap = await getDoc(doc(db, 'vendors', vendorId));
+      if (!vSnap.exists()) { setError('Restaurant not found'); setLoading(false); return; }
+      setVendor({ id: vSnap.id, ...vSnap.data() });
 
-  async function fetchVendorAndMenu() {
-    setLoading(true);
-    setError('');
-    try {
-      const vendorSnap = await getDoc(doc(db, 'vendors', vendorId));
-      if (vendorSnap.exists()) {
-        setVendor({ id: vendorSnap.id, ...vendorSnap.data() });
-      } else {
-        setError('Restaurant not found');
-        setLoading(false);
-        return;
-      }
-
-      const menuSnapshot = await getDocs(
-        query(collection(db, 'menu_items'), where('vendorId', '==', vendorId))
-      );
-      const menuList = menuSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setMenuItems(menuList);
-      setFilteredItems(menuList);
+      const mSnap = await getDocs(query(collection(db, 'menu_items'), where('vendorId', '==', vendorId)));
+      setMenuItems(mSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch {
-      setError('Unable to load menu. Please check your connection and try again.');
+      setError('Unable to load menu. Please check your connection.');
     } finally {
       setLoading(false);
     }
   }
 
-  // ── Filtering + sorting ───────────────────────────────────────
-  function filterMenuItems() {
-    let filtered = [...menuItems];
-    if (selectedCategory !== 'All')
-      filtered = filtered.filter((item) => item.category === selectedCategory);
-    if (searchQuery)
-      filtered = filtered.filter(
-        (item) =>
-          item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    if (sortBy === 'rating')      filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    else if (sortBy === 'price-low')  filtered.sort((a, b) => a.price - b.price);
-    else if (sortBy === 'price-high') filtered.sort((a, b) => b.price - a.price);
-    setFilteredItems(filtered);
-  }
+  // ── Sticky category bar on scroll ────────────────────────────
+  useEffect(() => {
+    const el = catBarRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setCatSticky(!entry.isIntersecting),
+      { threshold: 0, rootMargin: '-80px 0px 0px 0px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [loading]);
+
+  // ── Derived filtered + sorted list (useMemo, not useEffect) ──
+  const filteredItems = useMemo(() => {
+    let list = [...menuItems];
+    if (selectedCat !== 'All') list = list.filter(i => i.category === selectedCat);
+    if (searchQuery)            list = list.filter(i =>
+      i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      i.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    if (sortBy === 'rating')     list.sort((a,b) => (b.rating||0) - (a.rating||0));
+    if (sortBy === 'price-low')  list.sort((a,b) => a.price - b.price);
+    if (sortBy === 'price-high') list.sort((a,b) => b.price - a.price);
+    if (sortBy === 'popular')    list.sort((a,b) => (b.orderCount||0) - (a.orderCount||0));
+    return list;
+  }, [menuItems, selectedCat, searchQuery, sortBy]);
+
+  const categories = useMemo(() =>
+    ['All', ...new Set(menuItems.map(i => i.category).filter(Boolean))],
+    [menuItems]
+  );
+
+  // ── Quantity helpers ──────────────────────────────────────────
+  const getQty = id => quantities[id] || 1;
+  const setQty = (id, val) => setQuantities(p => ({ ...p, [id]: Math.max(1, val) }));
 
   // ── Add to cart ───────────────────────────────────────────────
-  async function handleAddToCart(item) {
-    if (addingItem) return;
-    setAddingItem(true);
+  const handleAdd = useCallback(async (item) => {
+    if (!currentUser) { navigate('/auth'); return; }
+    if (addingId === item.id) return;
+    setAddingId(item.id);
     try {
-      await addToCartContext(item);
-      setSnackbarMessage(`${item.name} added to your cart!`);
-      setSnackbarOpen(true);
+      const qty = getQty(item.id);
+      for (let i = 0; i < qty; i++) await addToCartContext(item);
+      setSnack({ open: true, msg: `${item.name} ×${qty} added!`, type: 'success' });
+      setQuantities(p => ({ ...p, [item.id]: 1 }));
     } catch {
-      setSnackbarMessage('Failed to add item. Please try again.');
-      setSnackbarOpen(true);
+      setSnack({ open: true, msg: 'Failed to add item. Try again.', type: 'error' });
     } finally {
-      setAddingItem(false);
+      setAddingId(null);
     }
-  }
+  }, [currentUser, addingId, quantities, addToCartContext, navigate]);
 
-  // ── Loading screen ────────────────────────────────────────────
+  const cartCount = getTotalItems?.() || 0;
+
   if (loading) return <KanteenLoader message="Loading menu…" />;
 
-  // ── Error screen ──────────────────────────────────────────────
-  if (error || !vendor) {
-    return (
-      <Box sx={{ bgcolor: '#f9f9f9', minHeight: '100vh' }}>
-        <Navbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} userData={userData} activePage="Vendors" />
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', flexDirection: 'column', gap: 2 }}>
-          <Typography sx={{ fontFamily: PP, color: '#dc2626', fontWeight: 600, fontSize: '1.1rem' }}>
-            {error || 'Restaurant not found'}
-          </Typography>
-          <Button
-            variant="contained"
-            onClick={() => navigate('/vendor')}
-            sx={{
-              bgcolor: '#dc2626', fontFamily: PP, fontWeight: 700,
-              textTransform: 'none', borderRadius: '8px',
-              '&:hover': { bgcolor: '#b91c1c' }
-            }}
-          >
-            Back to Restaurants
-          </Button>
-        </Box>
-      </Box>
-    );
-  }
+  if (error || !vendor) return (
+    <div className="mn-page">
+      <Navbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+      <div className="mn-error-screen">
+        <span className="mn-error-emoji">😕</span>
+        <p>{error || 'Restaurant not found'}</p>
+        <button className="mn-btn-primary" onClick={() => navigate('/')}>
+          <ArrowLeft size={16}/> Back to Restaurants
+        </button>
+      </div>
+    </div>
+  );
 
-  // ── Category config ───────────────────────────────────────────
-  const categories = ['All', ...new Set(menuItems.map((item) => item.category))];
-
-  const categoryIcons = {
-    Pizza:    <MdLocalPizza />,
-    Burgers:  <MdFastfood />,
-    Salads:   <MdLunchDining />,
-    Coffee:   <MdCoffee />,
-    Desserts: <MdIcecream />,
-    Snacks:   <MdFastfood />,
-  };
-
-  // Sort chip config
-  const sortChips = [
-    { label: 'Top Rated', value: 'rating'     },
-    { label: 'Price ↑',   value: 'price-low'  },
-    { label: 'Price ↓',   value: 'price-high' },
-  ];
-
-  // ── Main render ───────────────────────────────────────────────
   return (
-    <Box sx={{ bgcolor: '#f9f9f9', minHeight: '100vh', fontFamily: PP }}>
-      <Navbar
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        userData={userData}
-        activePage="Vendors"
-      />
-      <Box sx={{ height: '80px' }} />
+    <div className="mn-page">
+      <Navbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-
-        {/* ── Vendor header card ──────────────────────────────── */}
-        <Box sx={{
-          mb: 4,
-          bgcolor: 'white',
-          borderRadius: '14px',
-          border: '1px solid #e5e7eb',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-          overflow: 'hidden',
-        }}>
-          {/* Cover image */}
-          {vendor.image && (
-            <Box
-              component="img"
-              src={vendor.image}
-              alt={vendor.name}
-              sx={{
-                width: '100%',
-                height: { xs: '160px', sm: '200px', md: '260px' },
-                objectFit: 'cover',
-              }}
-            />
-          )}
-
-          {/* Vendor details */}
-          <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            {/* Name */}
-            <Typography sx={{
-              fontFamily: PP, fontWeight: 800,
-              fontSize: { xs: '1.4rem', sm: '1.8rem' },
-              color: '#1f2937', letterSpacing: '-0.4px', mb: 1
-            }}>
-              {vendor.name}
-            </Typography>
-
-            {/* Rating */}
-            {vendor.rating && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
-                <Rating
-                  value={vendor.rating} precision={0.1} readOnly size="small"
-                  sx={{ '& .MuiRating-iconFilled': { color: '#fbbf24' } }}
-                />
-                <Typography sx={{ fontFamily: PP, color: '#6b7280', fontWeight: 600, fontSize: '0.85rem' }}>
-                  {vendor.rating}
-                </Typography>
-              </Box>
-            )}
-
-            {/* Description */}
+      {/* ── Hero banner with gradient overlay ── */}
+      <div className="mn-hero">
+        {vendor.image
+          ? <img src={vendor.image} alt={vendor.name} className="mn-hero-img"/>
+          : <div className="mn-hero-placeholder"/>
+        }
+        <div className="mn-hero-overlay"/>
+        <div className="mn-hero-content">
+          <button className="mn-back-btn" onClick={() => navigate('/')}>
+            <ArrowLeft size={16}/> Restaurants
+          </button>
+          <div className="mn-hero-info">
+            <h1 className="mn-vendor-name">{vendor.name}</h1>
             {vendor.description && (
-              <Typography sx={{
-                fontFamily: PP, color: '#6b7280',
-                fontSize: { xs: '0.875rem', sm: '0.95rem' }, mb: 1
-              }}>
-                {vendor.description}
-              </Typography>
+              <p className="mn-vendor-desc">{vendor.description}</p>
             )}
+            <div className="mn-vendor-meta">
+              {vendor.rating && (
+                <span className="mn-meta-chip mn-meta-gold">
+                  <Star size={13} fill="currentColor"/> {vendor.rating.toFixed(1)}
+                </span>
+              )}
+              {vendor.waitTime && (
+                <span className="mn-meta-chip">
+                  <Clock size={13}/> ~{vendor.waitTime} min
+                </span>
+              )}
+              {vendor.address && (
+                <span className="mn-meta-chip">📍 {vendor.address}</span>
+              )}
+              {vendor.orderCount > 0 && (
+                <span className="mn-meta-chip">
+                  <TrendingUp size={13}/> {vendor.orderCount}+ orders
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Address */}
-            {vendor.address && (
-              <Typography sx={{ fontFamily: PP, color: '#9ca3af', fontSize: '0.8rem' }}>
-                📍 {vendor.address}
-              </Typography>
-            )}
-          </Box>
-        </Box>
+      {/* ── Search + Sort bar ── */}
+      <div className="mn-toolbar">
+        <div className="mn-search">
+          <Search size={16} className="mn-search-icon"/>
+          <input
+            type="text"
+            placeholder="Search menu…"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="mn-search-input"
+          />
+          {searchQuery && (
+            <button className="mn-search-clear" onClick={() => setSearchQuery('')}>
+              <X size={14}/>
+            </button>
+          )}
+        </div>
+        <div className="mn-sort-chips">
+          {SORT_OPTS.map(o => (
+            <button
+              key={o.value}
+              className={`mn-sort-chip${sortBy===o.value?' mn-sort-on':''}`}
+              onClick={() => setSortBy(o.value)}
+            >{o.label}</button>
+          ))}
+        </div>
+      </div>
 
-        {/* ── Filters row ─────────────────────────────────────── */}
-        <Box sx={{ mb: 4 }}>
-          {/* Header + sort chips */}
-          <Box sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            justifyContent: 'space-between',
-            alignItems: { xs: 'flex-start', sm: 'center' },
-            gap: 2, mb: 2
-          }}>
-            <Typography sx={{
-              fontFamily: PP, fontWeight: 700,
-              fontSize: { xs: '0.95rem', sm: '1.05rem' },
-              color: '#1f2937'
-            }}>
-              Filter by Category
-            </Typography>
+      {/* ── Category bar (ref for sticky detection) ── */}
+      <div ref={catBarRef} className="mn-cat-anchor"/>
+      <div className={`mn-cat-bar${catSticky?' mn-cat-sticky':''}`}>
+        <div className="mn-cat-track">
+          {categories.map(cat => (
+            <button
+              key={cat}
+              className={`mn-cat-btn${selectedCat===cat?' mn-cat-active':''}`}
+              onClick={() => setSelectedCat(cat)}
+            >
+              <span className="mn-cat-icon-wrap">
+                {CAT_ICONS[cat] || <MdRestaurant/>}
+              </span>
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
 
-            {/* Sort chips */}
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {sortChips.map((chip) => (
-                <Chip
-                  key={chip.value}
-                  label={chip.label}
-                  onClick={() => setSortBy(chip.value)}
-                  sx={{
-                    fontFamily: PP, fontWeight: 600,
-                    fontSize: { xs: '0.75rem', sm: '0.8rem' },
-                    bgcolor:  sortBy === chip.value ? '#dc2626' : '#ffffff',
-                    color:    sortBy === chip.value ? '#ffffff' : '#1f2937',
-                    border:   sortBy === chip.value ? 'none' : '1.5px solid #e5e7eb',
-                    '&:hover': {
-                      bgcolor: sortBy === chip.value ? '#b91c1c' : '#fef2f2',
-                      color:   sortBy === chip.value ? '#ffffff' : '#dc2626',
-                    }
-                  }}
-                />
-              ))}
-            </Box>
-          </Box>
+      {/* ── Main content ── */}
+      <div className="mn-container">
 
-          {/* Category chips */}
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {categories.map((category) => (
-              <Chip
-                key={category}
-                label={category}
-                icon={categoryIcons[category] || <MdRestaurant />}
-                onClick={() => setSelectedCategory(category)}
-                sx={{
-                  fontFamily: PP, fontWeight: 600,
-                  fontSize: { xs: '0.75rem', sm: '0.85rem' },
-                  py: 2.5, px: 1,
-                  bgcolor: selectedCategory === category ? '#1f2937' : '#ffffff',
-                  color:   selectedCategory === category ? '#ffffff' : '#4b5563',
-                  border:  selectedCategory === category ? 'none' : '1.5px solid #e5e7eb',
-                  '&:hover': {
-                    bgcolor: selectedCategory === category ? '#111827' : '#f3f4f6',
-                  },
-                  '& .MuiChip-icon': { color: 'inherit', fontSize: '1.1rem' }
-                }}
-              />
-            ))}
-          </Box>
-        </Box>
+        {/* Results count */}
+        <p className="mn-results">
+          {filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''}
+          {selectedCat !== 'All' ? ` in ${selectedCat}` : ''}
+        </p>
 
-        {/* ── Empty state ──────────────────────────────────────── */}
+        {/* Empty state */}
         {filteredItems.length === 0 && (
-          <Box sx={{ textAlign: 'center', py: 10 }}>
-            <Typography sx={{ fontFamily: PP, color: '#9ca3af', fontWeight: 500 }}>
-              No items found
-            </Typography>
-          </Box>
+          <div className="mn-empty">
+            <span>🍽️</span>
+            <p>No items found</p>
+            {(selectedCat !== 'All' || searchQuery) && (
+              <button className="mn-btn-secondary" onClick={() => { setSelectedCat('All'); setSearchQuery(''); }}>
+                Clear filters
+              </button>
+            )}
+          </div>
         )}
 
-        {/* ── Menu grid ────────────────────────────────────────── */}
-        <Grid container spacing={3}>
-          {filteredItems.map((item) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={item.id}>
-              <Card sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-                borderRadius: '14px',
-                border: '1px solid #e5e7eb',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-                transition: 'all 0.22s ease',
-                '&:hover': {
-                  transform: 'translateY(-5px)',
-                  boxShadow: '0 10px 24px rgba(0,0,0,0.1)',
-                  borderColor: '#d1d5db'
-                },
-                bgcolor: 'white',
-                overflow: 'hidden',
-              }}>
+        {/* ── Menu grid ── */}
+        <div className="mn-grid">
+          {filteredItems.map((item, idx) => {
+            const isAdding   = addingId === item.id;
+            const soldOut    = item.available === false;
+            const isBestseller = item.orderCount >= 50;
+            const isFeatured = item.featured === true;
+            const qty        = getQty(item.id);
 
-                {/* Item image */}
-                <CardMedia
-                  component="img"
-                  image={item.image || 'https://via.placeholder.com/400x300'}
-                  alt={item.name}
-                  sx={{
-                    height: 190,
-                    objectFit: 'cover',
-                    transition: 'transform 0.35s ease',
-                    '&:hover': { transform: 'scale(1.04)' }
-                  }}
-                />
-
-                <CardContent sx={{
-                  flexGrow: 1, display: 'flex',
-                  flexDirection: 'column', p: 2
-                }}>
-
-                  {/* Name */}
-                  <Typography sx={{
-                    fontFamily: PP, fontWeight: 700,
-                    fontSize: '0.95rem', color: '#1f2937',
-                    mb: 0.4,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden'
-                  }}>
-                    {item.name}
-                  </Typography>
-
-                  {/* Description */}
-                  <Typography sx={{
-                    fontFamily: PP, fontSize: '0.8rem',
-                    color: '#9ca3af', flexGrow: 1, mb: 1,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    lineHeight: 1.4
-                  }}>
-                    {item.description}
-                  </Typography>
-
-                  {/* Rating — gold stars */}
-                  <Rating
-                    value={item.rating || 4.5} size="small" readOnly
-                    sx={{
-                      mt: 'auto', mb: 0.5,
-                      '& .MuiRating-iconFilled': { color: '#fbbf24' }
-                    }}
+            return (
+              <div
+                key={item.id}
+                className={`mn-card${soldOut?' mn-card-soldout':''}`}
+                style={{ animationDelay: `${idx * 0.04}s` }}
+              >
+                {/* Image */}
+                <div className="mn-card-img">
+                  <img
+                    src={item.image || 'https://placehold.co/400x300/f3f4f6/9ca3af?text=No+Image'}
+                    alt={item.name}
+                    loading="lazy"
                   />
+                  {/* Badges */}
+                  <div className="mn-item-badges">
+                    {isBestseller && <span className="mn-badge mn-badge-hot">🔥 Popular</span>}
+                    {isFeatured   && <span className="mn-badge mn-badge-feat">⭐ Featured</span>}
+                    {soldOut      && <span className="mn-badge mn-badge-sold">Sold Out</span>}
+                  </div>
+                </div>
 
-                  {/* Price — brand red */}
-                  <Typography sx={{
-                    fontFamily: PP, fontWeight: 700,
-                    fontSize: '1.1rem', color: '#dc2626', mt: 0.5, mb: 1.5
-                  }}>
-                    R{item.price.toFixed(2)}
-                  </Typography>
+                {/* Body */}
+                <div className="mn-card-body">
+                  <p className="mn-item-name">{item.name}</p>
+                  {item.description && (
+                    <p className="mn-item-desc">{item.description}</p>
+                  )}
 
-                  {/* Add to Cart button */}
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    disabled={addingItem}
-                    onClick={() => handleAddToCart(item)}
-                    startIcon={<Plus size={15} />}
-                    sx={{
-                      bgcolor: '#dc2626',
-                      fontFamily: PP, fontWeight: 700,
-                      textTransform: 'none',
-                      fontSize: '0.875rem',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 12px rgba(220,38,38,0.2)',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        bgcolor: '#b91c1c',
-                        transform: 'translateY(-1px)',
-                        boxShadow: '0 6px 16px rgba(220,38,38,0.3)'
-                      },
-                      '&:disabled': { bgcolor: '#d1d5db' }
-                    }}
-                  >
-                    {addingItem ? 'Adding…' : 'Add to Cart'}
-                  </Button>
+                  {/* Star rating */}
+                  {item.rating && (
+                    <div className="mn-item-stars">
+                      {[1,2,3,4,5].map(s => (
+                        <Star
+                          key={s} size={12}
+                          fill={s <= Math.round(item.rating) ? '#fbbf24' : 'none'}
+                          color={s <= Math.round(item.rating) ? '#fbbf24' : '#d1d5db'}
+                        />
+                      ))}
+                      <span className="mn-item-rating-val">{item.rating.toFixed(1)}</span>
+                    </div>
+                  )}
 
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+                  {/* Tags */}
+                  {item.tags?.length > 0 && (
+                    <div className="mn-item-tags">
+                      {item.tags.slice(0,3).map(t => (
+                        <span key={t} className="mn-item-tag">{t}</span>
+                      ))}
+                    </div>
+                  )}
 
-      </Container>
+                  {/* Price + quantity + add */}
+                  <div className="mn-card-footer">
+                    <span className="mn-price">R{item.price.toFixed(2)}</span>
 
-      {/* ── Snackbar notification ──────────────────────────────── */}
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={2500}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbarOpen(false)}
-          severity="success"
-          sx={{
-            width: '100%',
-            bgcolor: '#dc2626',   /* brand red toast */
-            color: 'white',
-            fontWeight: 600,
-            fontFamily: PP,
-            '& .MuiAlert-icon': { color: 'white' }
-          }}
-        >
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
-    </Box>
+                    {!soldOut && (
+                      <div className="mn-add-row">
+                        {/* Quantity picker */}
+                        <div className="mn-qty">
+                          <button
+                            className="mn-qty-btn"
+                            onClick={() => setQty(item.id, qty - 1)}
+                            disabled={qty <= 1}
+                          ><Minus size={12}/></button>
+                          <span className="mn-qty-val">{qty}</span>
+                          <button
+                            className="mn-qty-btn"
+                            onClick={() => setQty(item.id, qty + 1)}
+                          ><Plus size={12}/></button>
+                        </div>
+
+                        {/* Add to cart */}
+                        <button
+                          className={`mn-add-btn${isAdding?' mn-add-loading':''}`}
+                          onClick={() => handleAdd(item)}
+                          disabled={isAdding}
+                        >
+                          {isAdding
+                            ? <span className="mn-spinner"/>
+                            : <><Plus size={14}/> Add</>
+                          }
+                        </button>
+                      </div>
+                    )}
+
+                    {soldOut && (
+                      <span className="mn-soldout-label">Sold Out</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Floating cart button ── */}
+      {cartCount > 0 && (
+        <button className="mn-cart-fab" onClick={() => navigate('/CartPage')}>
+          <ShoppingCart size={20}/>
+          <span>{cartCount} item{cartCount!==1?'s':''} in cart</span>
+          <span className="mn-cart-fab-arrow">→</span>
+        </button>
+      )}
+
+      {/* ── Snackbar ── */}
+      {snack.open && (
+        <div className={`mn-snack mn-snack-${snack.type}`}>
+          {snack.msg}
+          <button onClick={() => setSnack(p => ({ ...p, open: false }))}><X size={14}/></button>
+        </div>
+      )}
+    </div>
   );
 };
 
-export default Menu;
+export default MenuPage;

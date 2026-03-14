@@ -189,7 +189,7 @@ const SignUpForm = ({ onSwitchToLogin }) => {
       const fullPhone = `${countryCode}${phone.trim()}`;
       await signup(email, password, fullName, fullPhone);
       setMessage("Account created successfully!");
-      setTimeout(() => navigate("/vendor"), 1000);
+      setTimeout(() => navigate("/"), 1000);
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') setMessage("This email is already registered");
       else if (err.code === 'auth/invalid-email')   setMessage("Invalid email address");

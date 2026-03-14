@@ -1,8 +1,10 @@
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { useEffect, useState, useRef } from 'react';
+import { collection, onSnapshot, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  Store, Flame, Pizza, Coffee, IceCream2,
-  Fish, Heart, Salad, ChevronLeft, ChevronRight, Star, MapPin, Search, X
+  Store, Flame, Pizza, Coffee, IceCream2, Fish,
+  Heart, Salad, ChevronLeft, ChevronRight, Star,
+  X, Clock, SlidersHorizontal, TrendingUp,
+  AlertCircle, ChevronDown, Beef, Soup
 } from 'lucide-react';
 import { GiNoodles, GiTacos } from 'react-icons/gi';
 import { useNavigate } from 'react-router-dom';
@@ -12,359 +14,461 @@ import Navbar from '../components/landing/Navbar';
 import KanteenLoader from '../components/KanteenLoader';
 import './VendorsPage.css';
 
-const VendorsPage = () => {
-  const navigate  = useNavigate();
-  const scrollRef = useRef(null);
+// ─── Constants ─────────────────────────────────────────────────────────────────
+const CACHE_KEY  = 'kanteen_vendors_cache';
+const CACHE_TTL  = 5 * 60 * 1000;
+const PAGE_SIZE  = 12;
 
-  const [searchQuery,      setSearchQuery]      = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [favorites,        setFavorites]        = useState([]);
-  const [vendors,          setVendors]          = useState([]);
-  const [loading,          setLoading]          = useState(true);
-  const [user,             setUser]             = useState({ name: 'User' });
-  const [cart,             setCart]             = useState([]);
-  const [location,         setLocation]         = useState(null);   // resolved location string
-  const [locLoading,       setLocLoading]       = useState(false);
-  const [locInput,         setLocInput]         = useState('');     // what the user is typing
-  const [locSuggestions,   setLocSuggestions]   = useState([]);     // nominatim suggestions
-  const [locOpen,          setLocOpen]          = useState(false);  // dropdown visible
-  const locRef                                  = useRef(null);     // for click-outside
+const CATEGORIES = [
+  { name: 'All',      icon: Store,     bg: '#1f2937', fg: '#fff', value: 'All'       },
+  { name: 'Deals',    icon: Flame,     bg: '#dc2626', fg: '#fff', value: 'deals'     },
+  { name: 'Pizza',    icon: Pizza,     bg: '#ea580c', fg: '#fff', value: 'Pizza'     },
+  { name: 'Burgers',  icon: Beef,      bg: '#b45309', fg: '#fff', value: 'Fast Food' },
+  { name: 'Asian',    icon: GiNoodles, bg: '#0e7490', fg: '#fff', value: 'Asian'     },
+  { name: 'Coffee',   icon: Coffee,    bg: '#78350f', fg: '#fff', value: 'Coffee'    },
+  { name: 'Mexican',  icon: GiTacos,   bg: '#c2410c', fg: '#fff', value: 'Mexican'   },
+  { name: 'Japanese', icon: Fish,      bg: '#1d4ed8', fg: '#fff', value: 'Japanese'  },
+  { name: 'Desserts', icon: IceCream2, bg: '#be185d', fg: '#fff', value: 'Italian'   },
+  { name: 'Healthy',  icon: Salad,     bg: '#15803d', fg: '#fff', value: 'Healthy'   },
+  { name: 'Soups',    icon: Soup,      bg: '#7c3aed', fg: '#fff', value: 'Soups'     },
+];
 
-  // ── Category definitions ──────────────────────────────────────
-  // Each has a bgColor for the filled circle and an icon
-  const categoryIcons = [
-    { name: 'All',      icon: <Store     size={22} />, bg: '#1f2937', value: 'All'       },
-    { name: 'Deals',    icon: <Flame     size={22} />, bg: '#dc2626', value: 'deals'     },
-    { name: 'Pizza',    icon: <Pizza     size={22} />, bg: '#ea580c', value: 'Pizza'     },
-    { name: 'Burgers',  icon: <Salad     size={22} />, bg: '#16a34a', value: 'Fast Food' },
-    { name: 'Asian',    icon: <GiNoodles size={22} />, bg: '#0891b2', value: 'Asian'     },
-    { name: 'Coffee',   icon: <Coffee    size={22} />, bg: '#92400e', value: 'Coffee'    },
-    { name: 'Mexican',  icon: <GiTacos   size={22} />, bg: '#c2410c', value: 'Mexican'   },
-    { name: 'Japanese', icon: <Fish      size={22} />, bg: '#0369a1', value: 'Japanese'  },
-    { name: 'Desserts', icon: <IceCream2 size={22} />, bg: '#db2777', value: 'Italian'   },
-  ];
+const DIETARY    = ['Halal 🌙', 'Veg 🥗', 'Vegan 🌱', 'Spicy 🌶️'];
+const SORT_OPTS  = [
+  { label: 'Most Popular',  value: 'popular' },
+  { label: 'Highest Rated', value: 'rating'  },
+  { label: 'Newest',        value: 'newest'  },
+  { label: 'A – Z',         value: 'az'      },
+];
+const EMPTY_MSGS = {
+  'Pizza':     ['🍕', 'No pizza places yet'],
+  'Fast Food': ['🍔', 'No burger spots yet'],
+  'Asian':     ['🍜', 'No Asian spots yet' ],
+  'Coffee':    ['☕', 'No coffee shops yet'],
+  'Mexican':   ['🌮', 'No Mexican spots yet'],
+  'Japanese':  ['🍣', 'No sushi spots yet' ],
+  'Italian':   ['🍨', 'No dessert spots yet'],
+  'Healthy':   ['🥗', 'No healthy spots yet'],
+  'Soups':     ['🍲', 'No soup spots yet'  ],
+  'deals':     ['🔥', 'No deals right now' ],
+  'All':       ['🍽️', 'No restaurants found'],
+};
+// ───────────────────────────────────────────────────────────────────────────────
 
-  // ── Close dropdown when clicking outside ────────────────────
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (locRef.current && !locRef.current.contains(e.target)) {
-        setLocOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function isVendorOpen(vendor) {
+  if (!vendor.openingHours) return null;
+  const day   = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+  const hours = vendor.openingHours[day];
+  if (!hours?.open || !hours?.close) return false;
+  const now    = new Date().getHours() * 60 + new Date().getMinutes();
+  const [oh,om]= hours.open.split(':').map(Number);
+  const [ch,cm]= hours.close.split(':').map(Number);
+  return now >= oh*60+om && now < ch*60+cm;
+}
 
-  // ── Fetch location suggestions as user types ──────────────────
-  useEffect(() => {
-    if (locInput.trim().length < 2) {
-      setLocSuggestions([]);
-      return;
-    }
-    // Debounce — wait 350ms after user stops typing
-    const timer = setTimeout(async () => {
-      try {
-        const res  = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(locInput)}&format=json&limit=5&addressdetails=1`
-        );
-        const data = await res.json();
-        setLocSuggestions(data);
-        setLocOpen(true);
-      } catch {
-        setLocSuggestions([]);
-      }
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [locInput]);
+function closingText(vendor) {
+  if (!vendor.openingHours) return null;
+  const day   = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+  const hours = vendor.openingHours[day];
+  if (!hours?.close) return null;
+  const [ch,cm]= hours.close.split(':').map(Number);
+  const now    = new Date().getHours()*60 + new Date().getMinutes();
+  const diff   = ch*60+cm - now;
+  if (diff <= 0 || diff > 120) return null;
+  return diff < 60 ? `Closes in ${diff}m` : `Closes in 1h`;
+}
 
-  // ── Data fetching ─────────────────────────────────────────────
-  useEffect(() => {
-    fetchVendors();
-    fetchUserData();
-    fetchLocation();   // grab campus location on mount
-  }, []);
+function isNew(vendor) {
+  if (!vendor.createdAt) return false;
+  const d = vendor.createdAt?.toDate?.() || new Date(vendor.createdAt);
+  return Date.now() - d.getTime() < 30*24*60*60*1000;
+}
 
-  async function fetchUserData() {
-    try {
-      const auth        = getAuth();
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-
-      const userRef  = doc(db, 'users', currentUser.uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        setUser(userData);
-        setCart(userData.cart || []);
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-    }
-  }
-
-  async function fetchVendors() {
-    try {
-      setLoading(true);
-      const vendorsCollection = collection(db, 'vendors');
-      const vendorSnapshot    = await getDocs(vendorsCollection);
-      const vendorList        = vendorSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      setVendors(vendorList);
-    } catch (error) {
-      console.error('Error fetching vendors:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // ── Reverse-geocode the user's position into a readable name ──
-  function fetchLocation() {
-    if (!navigator.geolocation) return;
-
-    setLocLoading(true);
-
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        try {
-          // Free reverse-geocode via nominatim (no API key needed)
-          const res  = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`
-          );
-          const data = await res.json();
-
-          // Pick the most readable label available
-          const place =
-            data.address?.building     ||
-            data.address?.amenity      ||
-            data.address?.road         ||
-            data.address?.suburb       ||
-            data.address?.city         ||
-            'Your campus location';
-
-          setLocation(place);
-          setLocInput(place);
-        } catch {
-          setLocation('Your campus location');
-        } finally {
-          setLocLoading(false);
-        }
-      },
-      () => {
-        // User denied or error — fall back gracefully
-        setLocation('Your campus location');
-        setLocInput('Your campus location');
-        setLocLoading(false);
-      },
-      { timeout: 8000 }
-    );
-  }
-
-  // ── Filtering ─────────────────────────────────────────────────
-  const filteredVendors = vendors.filter(vendor => {
-    const matchesSearch = vendor.name.toLowerCase().includes(searchQuery.toLowerCase());
-    if (selectedCategory === 'deals') return matchesSearch && vendor.deals?.length > 0;
-    const matchesCategory =
-      selectedCategory === 'All' ||
-      vendor.category?.toLowerCase().includes(selectedCategory.toLowerCase());
-    return matchesSearch && matchesCategory;
+function sorted(list, by) {
+  const v = [...list];
+  if (by === 'rating')  return v.sort((a,b) => (b.rating||0)-(a.rating||0));
+  if (by === 'popular') return v.sort((a,b) => (b.orderCount||0)-(a.orderCount||0));
+  if (by === 'newest')  return v.sort((a,b) => {
+    const da = a.createdAt?.toDate?.() || new Date(a.createdAt||0);
+    const db_ = b.createdAt?.toDate?.() || new Date(b.createdAt||0);
+    return db_-da;
   });
+  if (by === 'az') return v.sort((a,b) => a.name.localeCompare(b.name));
+  return v;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // ── Favourites toggle ─────────────────────────────────────────
-  const toggleFavorite = (vendorId) => {
-    setFavorites(prev =>
-      prev.includes(vendorId) ? prev.filter(id => id !== vendorId) : [...prev, vendorId]
-    );
-  };
+const SkeletonCard = ({ i }) => (
+  <div className="vp-skeleton" style={{ animationDelay: `${i * 0.06}s` }}>
+    <div className="vp-sk-img" />
+    <div className="vp-sk-body">
+      <div className="vp-sk-line vp-sk-title" />
+      <div className="vp-sk-line vp-sk-desc" />
+      <div className="vp-sk-line vp-sk-meta" />
+    </div>
+  </div>
+);
 
-  // ── Category strip scroll ─────────────────────────────────────
-  const scroll = (direction) => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({
-        left: direction === 'left' ? -280 : 280,
-        behavior: 'smooth',
+const VendorsPage = () => {
+  const navigate = useNavigate();
+  const trackRef = useRef(null);
+  const auth     = getAuth();
+  const currentUser = auth.currentUser;
+
+  const [vendors,       setVendors]       = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState(null);
+  const [favorites,     setFavorites]     = useState([]);
+  const [recentIds,     setRecentIds]     = useState([]);
+  const [searchQuery,   setSearchQuery]   = useState('');
+  const [category,      setCategory]      = useState('All');
+  const [dietary,       setDietary]       = useState([]);
+  const [sortBy,        setSortBy]        = useState('popular');
+  const [openOnly,      setOpenOnly]      = useState(false);
+  const [showSort,      setShowSort]      = useState(false);
+  const [visibleCount,  setVisibleCount]  = useState(PAGE_SIZE);
+
+  // ── Cache → instant load ──────────────────────────────────────
+  useEffect(() => {
+    try {
+      const c = localStorage.getItem(CACHE_KEY);
+      if (c) {
+        const { data, ts } = JSON.parse(c);
+        if (Date.now() - ts < CACHE_TTL) { setVendors(data); setLoading(false); }
+      }
+    } catch {}
+  }, []);
+
+  // ── Real-time vendors ─────────────────────────────────────────
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'vendors'), snap => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setVendors(list);
+      setLoading(false);
+      setError(null);
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: list, ts: Date.now() })); } catch {}
+    }, err => {
+      console.error(err);
+      setError('Could not load restaurants. Check your connection.');
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  // ── Favorites from Firestore ──────────────────────────────────
+  useEffect(() => {
+    if (!currentUser) return;
+    getDoc(doc(db, 'users', currentUser.uid)).then(snap => {
+      if (snap.exists()) setFavorites(snap.data()?.favorites?.vendors || []);
+    });
+  }, [currentUser]);
+
+  // ── Recently visited from orders ──────────────────────────────
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = onSnapshot(collection(db, 'orders'), snap => {
+      const ids = [];
+      snap.docs
+        .map(d => ({ ...d.data() }))
+        .filter(o => o.userId === currentUser.uid)
+        .sort((a,b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))
+        .forEach(o => { if (o.vendorId && !ids.includes(o.vendorId)) ids.push(o.vendorId); });
+      setRecentIds(ids.slice(0,5));
+    });
+    return () => unsub();
+  }, [currentUser]);
+
+  // ── Toggle favorite ───────────────────────────────────────────
+  const toggleFav = async (e, id) => {
+    e.stopPropagation();
+    const was = favorites.includes(id);
+    setFavorites(p => was ? p.filter(x=>x!==id) : [...p,id]);
+    if (!currentUser) return;
+    try {
+      await updateDoc(doc(db,'users',currentUser.uid), {
+        'favorites.vendors': was ? arrayRemove(id) : arrayUnion(id)
       });
-    }
+    } catch { setFavorites(p => was ? [...p,id] : p.filter(x=>x!==id)); }
   };
 
-  if (loading) return <KanteenLoader message="Finding restaurants near you…" />;
+  const toggleDietary = tag =>
+    setDietary(p => p.includes(tag) ? p.filter(t=>t!==tag) : [...p,tag]);
 
-  // ── Render ────────────────────────────────────────────────────
+  const scroll = dir =>
+    trackRef.current?.scrollBy({ left: dir==='left' ? -300 : 300, behavior: 'smooth' });
+
+  // ── Filter + sort pipeline ────────────────────────────────────
+  const filtered = sorted(
+    vendors.filter(v => {
+      const q   = v.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const cat = category==='All' ? true
+                : category==='deals' ? v.deals?.length>0
+                : v.category?.toLowerCase().includes(category.toLowerCase());
+      const diet= dietary.length===0 || dietary.every(t =>
+        v.tags?.map(x=>x.toLowerCase()).includes(t.replace(/\s*[^\w\s].*/,'').toLowerCase().trim())
+      );
+      const open= !openOnly || isVendorOpen(v)===true;
+      return q && cat && diet && open;
+    }),
+    sortBy
+  );
+
+  const visible  = filtered.slice(0, visibleCount);
+  const hasMore  = visibleCount < filtered.length;
+  const recents  = vendors.filter(v => recentIds.includes(v.id));
+  const chipCount= (category!=='All'?1:0) + dietary.length + (openOnly?1:0);
+  const [emojii, emptyText] = EMPTY_MSGS[category] || EMPTY_MSGS['All'];
+
   return (
     <div className="vp-page">
-
-      <Navbar
-        userData={user}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        activePage="vendors"
-        cartCount={cart.length || 0}
-      />
+      <Navbar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
       <div className="vp-container">
 
-        {/* ── Location search strip ────────────────────────────
-            GPS auto-detect on load. User can also type to search
-            and pick from Nominatim suggestions.                  */}
-        <div className="vp-location-wrap" ref={locRef}>
-          <div className="vp-location-strip">
-            <MapPin size={15} className="vp-location-pin" />
-            <input
-              className="vp-location-input"
-              type="text"
-              placeholder="Your campus location"
-              value={locInput}
-              onChange={(e) => { setLocInput(e.target.value); setLocOpen(true); }}
-              onFocus={() => { if (locSuggestions.length > 0) setLocOpen(true); }}
-            />
-            {/* GPS button — re-detect current position */}
-            <button
-              className="vp-location-gps"
-              onClick={fetchLocation}
-              title="Use my location"
-              aria-label="Detect my location"
-            >
-              {locLoading ? '…' : <MapPin size={13} />}
-            </button>
-            {/* Clear button */}
-            {locInput.length > 0 && (
-              <button
-                className="vp-location-clear"
-                onClick={() => { setLocInput(''); setLocSuggestions([]); setLocOpen(false); }}
-                aria-label="Clear location"
-              >
-                <X size={13} />
-              </button>
-            )}
+        {/* ── Error ── */}
+        {error && (
+          <div className="vp-error">
+            <AlertCircle size={16} />
+            {error}
+            <button onClick={() => window.location.reload()}>Retry</button>
           </div>
+        )}
 
-          {/* Suggestions dropdown */}
-          {locOpen && locSuggestions.length > 0 && (
-            <ul className="vp-loc-suggestions">
-              {locSuggestions.map((s, i) => (
-                <li
-                  key={i}
-                  className="vp-loc-suggestion-item"
-                  onClick={() => {
-                    setLocInput(s.display_name);
-                    setLocation(s.display_name);
-                    setLocSuggestions([]);
-                    setLocOpen(false);
-                  }}
-                >
-                  <MapPin size={12} className="vp-loc-s-pin" />
-                  <span>{s.display_name}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* ── "What are you craving?" heading ─────────────────  */}
-        <p className="vp-craving-label">WHAT ARE YOU CRAVING TODAY?</p>
-
-        {/* ── Circular category icons ──────────────────────────
-            Each category is a filled circle with an icon above
-            and the category name below — matching the mockup.  */}
-        <div className="vp-cat-wrapper">
-          <div className="vp-cat-nav">
-
-            <button className="vp-cat-arrow" onClick={() => scroll('left')} aria-label="Scroll left">
-              <ChevronLeft size={16} />
-            </button>
-
-            <div className="vp-cat-track" ref={scrollRef}>
-              {categoryIcons.map((cat, i) => (
-                <button
-                  key={i}
-                  className={`vp-cat-item${selectedCategory === cat.value ? ' active' : ''}`}
-                  onClick={() => setSelectedCategory(cat.value)}
-                >
-                  {/* Filled circle — uses category bg colour, brightens when active */}
-                  <div
-                    className="vp-cat-circle"
-                    style={{ background: cat.bg }}
-                  >
-                    {cat.icon}
-                  </div>
-                  {/* Label below the circle */}
-                  <span className="vp-cat-label">{cat.name}</span>
+        {/* ── Recently Visited ── */}
+        {recents.length > 0 && (
+          <section className="vp-recents">
+            <p className="vp-section-label"><Clock size={13}/> Recently visited</p>
+            <div className="vp-recents-row">
+              {recents.map(v => (
+                <button key={v.id} className="vp-recent-pill" onClick={() => navigate(`/menu/${v.id}`)}>
+                  <img src={v.image||'https://via.placeholder.com/32'} alt={v.name}/>
+                  {v.name}
                 </button>
               ))}
             </div>
+          </section>
+        )}
 
-            <button className="vp-cat-arrow" onClick={() => scroll('right')} aria-label="Scroll right">
-              <ChevronRight size={16} />
+        {/* ── Heading ── */}
+        <p className="vp-craving-label">WHAT ARE YOU CRAVING TODAY?</p>
+
+        {/* ── Category strip ── */}
+        <div className="vp-cats">
+          <button className="vp-cat-arrow" onClick={() => scroll('left')} aria-label="left">
+            <ChevronLeft size={15}/>
+          </button>
+          <div className="vp-cat-track" ref={trackRef}>
+            {CATEGORIES.map((cat) => {
+              const Icon = cat.icon;
+              const active = category === cat.value;
+              return (
+                <button
+                  key={cat.value}
+                  className={`vp-cat-btn${active ? ' vp-cat-active' : ''}`}
+                  onClick={() => { setCategory(cat.value); setVisibleCount(PAGE_SIZE); }}
+                >
+                  <span
+                    className="vp-cat-icon"
+                    style={{ background: active ? cat.bg : `${cat.bg}22`, color: active ? cat.fg : cat.bg }}
+                  >
+                    <Icon size={20}/>
+                  </span>
+                  <span className="vp-cat-name">{cat.name}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button className="vp-cat-arrow" onClick={() => scroll('right')} aria-label="right">
+            <ChevronRight size={15}/>
+          </button>
+        </div>
+
+        {/* ── Filter + Sort row ── */}
+        <div className="vp-toolbar">
+          <div className="vp-pills">
+            {DIETARY.map(tag => (
+              <button
+                key={tag}
+                className={`vp-pill${dietary.includes(tag) ? ' vp-pill-on' : ''}`}
+                onClick={() => toggleDietary(tag)}
+              >{tag}</button>
+            ))}
+            <button
+              className={`vp-pill${openOnly ? ' vp-pill-on' : ''}`}
+              onClick={() => setOpenOnly(p=>!p)}
+            >🟢 Open Now</button>
+          </div>
+
+          <div className="vp-sort-wrap">
+            <button className="vp-sort-btn" onClick={() => setShowSort(p=>!p)}>
+              <SlidersHorizontal size={13}/>
+              {SORT_OPTS.find(o=>o.value===sortBy)?.label}
+              <ChevronDown size={12}/>
             </button>
-
+            {showSort && (
+              <>
+                <div className="vp-sort-bg" onClick={() => setShowSort(false)}/>
+                <div className="vp-sort-menu">
+                  {SORT_OPTS.map(o => (
+                    <button
+                      key={o.value}
+                      className={`vp-sort-opt${sortBy===o.value?' vp-sort-active':''}`}
+                      onClick={() => { setSortBy(o.value); setShowSort(false); }}
+                    >{o.label}</button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* ── Results bar ──────────────────────────────────────  */}
-        <div className="vp-results-bar">
-          <span className="vp-results-count">Available on campus</span>
-          {selectedCategory !== 'All' && (
-            <button className="vp-clear-btn" onClick={() => setSelectedCategory('All')}>
-              Clear ✕
+        {/* ── Active chips ── */}
+        {chipCount > 0 && (
+          <div className="vp-chips">
+            {category !== 'All' && (
+              <span className="vp-chip">
+                {category}<button onClick={() => setCategory('All')}><X size={10}/></button>
+              </span>
+            )}
+            {dietary.map(t => (
+              <span key={t} className="vp-chip">
+                {t}<button onClick={() => toggleDietary(t)}><X size={10}/></button>
+              </span>
+            ))}
+            {openOnly && (
+              <span className="vp-chip">
+                Open Now<button onClick={() => setOpenOnly(false)}><X size={10}/></button>
+              </span>
+            )}
+            <button className="vp-chip-clear" onClick={() => { setCategory('All'); setDietary([]); setOpenOnly(false); }}>
+              Clear all
             </button>
-          )}
+          </div>
+        )}
+
+        {/* ── Results count ── */}
+        <div className="vp-results-bar">
+          <span className="vp-results-count">
+            {loading ? 'Loading…' : `${filtered.length} restaurant${filtered.length!==1?'s':''} available`}
+          </span>
         </div>
 
-        {/* ── Vendor grid ──────────────────────────────────────  */}
+        {/* ── Grid ── */}
         <div className="vp-grid">
-          {filteredVendors.length === 0 ? (
+          {loading ? (
+            Array.from({length: 8}).map((_,i) => <SkeletonCard key={i} i={i}/>)
+          ) : filtered.length === 0 ? (
             <div className="vp-empty">
-              <span className="vp-empty-icon">🍽️</span>
-              No restaurants found
+              <span className="vp-empty-icon">{emojii}</span>
+              <p>{emptyText}</p>
+              {category !== 'All' && (
+                <button className="vp-empty-btn" onClick={() => setCategory('All')}>
+                  Browse all
+                </button>
+              )}
             </div>
-          ) : (
-            filteredVendors.map(vendor => (
+          ) : visible.map((vendor, idx) => {
+            const openStatus = isVendorOpen(vendor);
+            const closing    = closingText(vendor);
+            const newVendor  = isNew(vendor);
+            const fav        = favorites.includes(vendor.id);
+
+            return (
               <div
                 key={vendor.id}
-                className="vp-card"
+                className={`vp-card${openStatus===false?' vp-card-closed':''}`}
+                style={{ animationDelay: `${idx * 0.04}s` }}
                 onClick={() => navigate(`/menu/${vendor.id}`)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && navigate(`/menu/${vendor.id}`)}
-                aria-label={`View ${vendor.name} menu`}
+                role="button" tabIndex={0}
+                onKeyDown={e => e.key==='Enter' && navigate(`/menu/${vendor.id}`)}
               >
                 {/* Image */}
-                <div className="vp-card-img-wrap">
+                <div className="vp-card-img">
                   <img
-                    src={vendor.image || 'https://via.placeholder.com/400x220'}
+                    src={vendor.image||'https://via.placeholder.com/400x220'}
                     alt={vendor.name}
                     loading="lazy"
                   />
-                  {vendor.deals?.length > 0 && <span className="vp-deal-badge">Deal</span>}
-                  <button
-                    className="vp-fav-btn"
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(vendor.id); }}
-                    aria-label="Toggle favourite"
-                  >
-                    <Heart
-                      size={16}
-                      color={favorites.includes(vendor.id) ? '#dc2626' : '#9ca3af'}
-                      fill={favorites.includes(vendor.id) ? '#dc2626' : 'none'}
-                    />
+
+                  {/* Top-left badges */}
+                  <div className="vp-badges">
+                    {openStatus !== null && (
+                      <span className={`vp-badge-status ${openStatus?'open':'closed'}`}>
+                        {openStatus ? '● Open' : '● Closed'}
+                      </span>
+                    )}
+                    {newVendor && <span className="vp-badge-new">New ✨</span>}
+                    {vendor.deals?.length > 0 && <span className="vp-badge-deal">🔥 Deal</span>}
+                  </div>
+
+                  {/* Closing soon warning */}
+                  {closing && (
+                    <span className="vp-closing"><Clock size={10}/> {closing}</span>
+                  )}
+
+                  {/* Fav button */}
+                  <button className="vp-fav" onClick={e => toggleFav(e, vendor.id)}>
+                    <Heart size={15} color={fav?'#dc2626':'#9ca3af'} fill={fav?'#dc2626':'none'}/>
                   </button>
                 </div>
 
                 {/* Body */}
                 <div className="vp-card-body">
                   <p className="vp-card-name">{vendor.name}</p>
-                  {/* Description shown if available — matches mockup */}
                   {vendor.description && (
-                    <p className="vp-card-description">{vendor.description}</p>
+                    <p className="vp-card-desc">{vendor.description}</p>
                   )}
+
+                  {/* Tags */}
+                  {vendor.tags?.length > 0 && (
+                    <div className="vp-card-tags">
+                      {vendor.tags.slice(0,3).map(t => (
+                        <span key={t} className="vp-tag">{t}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Meta */}
                   <div className="vp-card-meta">
-                    <span className="vp-card-rating">
-                      <Star size={14} fill="#fbbf24" color="#fbbf24" />
-                      {vendor.rating ?? 'N/A'} rating
+                    <span className="vp-meta-rating">
+                      <Star size={12} fill="#fbbf24" color="#fbbf24"/>
+                      {vendor.rating ? vendor.rating.toFixed(1) : 'N/A'}
                     </span>
+                    {vendor.orderCount > 0 && (
+                      <span className="vp-meta-orders">
+                        <TrendingUp size={12}/>
+                        {vendor.orderCount >= 1000
+                          ? `${(vendor.orderCount/1000).toFixed(1)}k`
+                          : vendor.orderCount}+
+                      </span>
+                    )}
+                    {vendor.waitTime && (
+                      <span className="vp-meta-wait">
+                        <Clock size={12}/> ~{vendor.waitTime}m
+                      </span>
+                    )}
+                    {vendor.priceRange && (
+                      <span className="vp-meta-price">
+                        {'R'.repeat(vendor.priceRange)}
+                        <span className="vp-price-dim">{'R'.repeat(3-vendor.priceRange)}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
-            ))
-          )}
+            );
+          })}
         </div>
+
+        {/* ── Load more ── */}
+        {!loading && hasMore && (
+          <div className="vp-loadmore-wrap">
+            <button className="vp-loadmore" onClick={() => setVisibleCount(p => p+PAGE_SIZE)}>
+              Show more restaurants
+            </button>
+          </div>
+        )}
 
       </div>
     </div>

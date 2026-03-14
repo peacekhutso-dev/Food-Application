@@ -23,7 +23,7 @@ const LoginForm = ({ onSwitchToSignup }) => {
       setMessage(result.error);
     } else {
       setMessage("Login successful! Redirecting...");
-      setTimeout(() => navigate("/vendor"), 1000);
+      setTimeout(() => navigate("/"), 1000);
     }
   };
 

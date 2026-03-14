@@ -71,4 +71,3 @@ export const requireAuth = async (navigate) => {
   }
   return user;
 };
-

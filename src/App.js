@@ -1,3 +1,4 @@
+// src/App.jsx
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import './App.css';
 import { AuthProvider } from './context/AuthContext';
@@ -22,21 +23,13 @@ function App() {
 
             {/* ── Public Routes ──────────────────────────────────────
                 Guests and logged-in users can both access these.     */}
-            <Route path="/"               element={<SignupLogin />} />
-            <Route path="/vendor"         element={<VendorPage />} />
+            <Route path="/"               element={<VendorPage />} />
+            <Route path="/auth"           element={<SignupLogin />} />
             <Route path="/menu/:vendorId" element={<MenuPage />}   />
             <Route path="/CartPage"       element={<CartApp />}    />
 
             {/* ── Protected Routes ───────────────────────────────────
-                Guests are redirected to "/" until they log in.       */}
-            <Route
-              path="/ProfilePage"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
+                Guests are redirected to "/auth" until they log in.  */}
             <Route
               path="/checkout"
               element={
@@ -58,6 +51,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <TrackOrder />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ProfilePage"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
                 </ProtectedRoute>
               }
             />
