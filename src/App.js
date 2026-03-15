@@ -13,6 +13,7 @@ import VendorPage from './pages/VendorPage';
 import CartApp from "./pages/CartPage";
 import ProfilePage from './pages/ProfilePage';
 import CheckoutPage from './pages/CheckoutPage';
+import OrdersPage from './pages/OrdersPage';
 
 function App() {
   return (
@@ -59,6 +60,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/orders"
+              element={
+                <ProtectedRoute>
+                  <OrdersPage />
                 </ProtectedRoute>
               }
             />

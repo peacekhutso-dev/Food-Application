@@ -358,14 +358,15 @@ const Navbar = ({ searchQuery = '', setSearchQuery }) => {
                   <Menu size={22} color="#111" />
                 </button>
               )}
-
-              {/* Logo: KANTEEN */}
-              <div onClick={() => { navigate('/'); closeAll(); }}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                <span className="nb-logo" style={{ fontSize: '20px', fontWeight: 800, color: '#111', letterSpacing: '2px' }}>
-                  K A N T E E N
-                </span>
-
+             <div>
+              <span className="nb-logo" style={{
+                fontSize: isMobile ? '10px' : '20px',
+                fontWeight: 800,
+                color: '#111',
+                letterSpacing: isMobile ? '1px' : '2px'
+              }}>
+                KANTEEN
+              </span>
               </div>
 
               {!isMobile && (
@@ -627,7 +628,7 @@ const Navbar = ({ searchQuery = '', setSearchQuery }) => {
                       <span style={{ fontWeight: 700, fontSize: '14px', color: '#111' }}>Your Cart ({cartCount} items)</span>
                     </div>
                     <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                      {(cartItems || []).slice(0, 5).map((item, i) => (
+                      {(Array.isArray(cartItems) ? cartItems : Object.values(cartItems || {})).slice(0, 5).map((item, i) => (
                         <div key={i} style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f9f9f9' }}>
                           <div>
                             <div style={{ fontSize: '13px', color: '#111', fontWeight: 500 }}>{item.name}</div>
